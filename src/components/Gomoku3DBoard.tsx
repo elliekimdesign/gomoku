@@ -23,7 +23,7 @@ const BOARD_SIZE = 10;
 const CELL_SIZE = 0.5;
 const BOARD_LENGTH = (BOARD_SIZE - 1) * CELL_SIZE;
 
-// Artistic stone material properties
+// Stone material (clean, elegant) used for both black and white stones
 const stoneMaterialProps = (player: Player) => {
   if (player === 1) {
     return {
@@ -32,10 +32,7 @@ const stoneMaterialProps = (player: Player) => {
       metalness: 0.55,
       clearcoat: 0.8,
       clearcoatRoughness: 0.13,
-      sheen: 1,
-      sheenColor: '#3a3a5a',
-      transmission: 0.07,
-    };
+    } as const;
   }
   if (player === 2) {
     return {
@@ -44,12 +41,9 @@ const stoneMaterialProps = (player: Player) => {
       metalness: 0.38,
       clearcoat: 0.85,
       clearcoatRoughness: 0.09,
-      sheen: 1,
-      sheenColor: '#fffbe6',
-      transmission: 0.09,
-    };
+    } as const;
   }
-  return { color: 'transparent', opacity: 0 };
+  return { color: 'transparent', opacity: 0 } as const;
 };
 
 // Helper to render grid lines for a 3D cube
