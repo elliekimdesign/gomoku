@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Html, Billboard } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
@@ -22,6 +22,35 @@ interface Gomoku3DCubeBoardProps {
 const BOARD_SIZE = 10;
 const CELL_SIZE = 0.5;
 const BOARD_LENGTH = (BOARD_SIZE - 1) * CELL_SIZE;
+
+// Artistic stone material properties
+const stoneMaterialProps = (player: Player) => {
+  if (player === 1) {
+    return {
+      color: '#23242b',
+      roughness: 0.22,
+      metalness: 0.55,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.13,
+      sheen: 1,
+      sheenColor: '#3a3a5a',
+      transmission: 0.07,
+    };
+  }
+  if (player === 2) {
+    return {
+      color: '#f7f6f2',
+      roughness: 0.15,
+      metalness: 0.38,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.09,
+      sheen: 1,
+      sheenColor: '#fffbe6',
+      transmission: 0.09,
+    };
+  }
+  return { color: 'transparent', opacity: 0 };
+};
 
 // Helper to render grid lines for a 3D cube
 const GridLines3D: React.FC<{ dimmed: boolean }> = ({ dimmed }) => {
