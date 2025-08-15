@@ -47,7 +47,7 @@ const stoneMaterialProps = (player: Player) => {
 };
 
 // Helper to render grid lines for a 3D cube
-const GridLines3D: React.FC<{ dimmed: boolean }> = ({ dimmed }) => {
+const GridLines3D: React.FC = () => {
   if (BOARD_SIZE < 2) return null;
   const lines = [];
   for (let i = 0; i < BOARD_SIZE; i++) {
@@ -66,7 +66,7 @@ const GridLines3D: React.FC<{ dimmed: boolean }> = ({ dimmed }) => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#bbb" linewidth={1} transparent opacity={dimmed ? 0.12 : 0.5} />
+            <lineBasicMaterial color="#888" linewidth={1} transparent opacity={0.8} />
           </line>
         );
         // Y lines
@@ -81,7 +81,7 @@ const GridLines3D: React.FC<{ dimmed: boolean }> = ({ dimmed }) => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#bbb" linewidth={1} transparent opacity={dimmed ? 0.12 : 0.5} />
+            <lineBasicMaterial color="#888" linewidth={1} transparent opacity={0.8} />
           </line>
         );
         // Z lines
@@ -96,7 +96,7 @@ const GridLines3D: React.FC<{ dimmed: boolean }> = ({ dimmed }) => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#bbb" linewidth={1} transparent opacity={dimmed ? 0.12 : 0.5} />
+            <lineBasicMaterial color="#888" linewidth={1} transparent opacity={0.8} />
           </line>
         );
       }
@@ -138,7 +138,7 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, 20, 20]} intensity={0.7} />
         {/* 3D Grid Lines */}
-        <GridLines3D dimmed={!!(hovered && board[hovered[2]][hovered[1]][hovered[0]] === 0 && !winner)} />
+        <GridLines3D />
         {/* Artistic Stones (no bump) */}
         {board.map((plane, z) =>
           plane.map((row, y) =>
