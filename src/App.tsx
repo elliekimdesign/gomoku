@@ -98,6 +98,101 @@ const PreviewWrapper = styled.div`
   }
 `;
 
+const RotationControls = styled.div`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+`;
+
+const ZoomControls = styled.div`
+  position: fixed;
+  bottom: 170px;
+  right: 88px;
+  transform: translateX(50%);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  display: flex;
+  gap: 4px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+`;
+
+const RotationButton = styled.button`
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: #444;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    background: #f0f0f0;
+    border-color: #bbb;
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    background: #e8e8e8;
+  }
+  
+  &.center {
+    background: #23242b;
+    color: #fff;
+    border-color: #23242b;
+    
+    &:hover {
+      background: #444;
+    }
+  }
+`;
+
+const ZoomButton = styled.button`
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  color: #444;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    background: #f0f0f0;
+    border-color: #bbb;
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    background: #e8e8e8;
+  }
+`;
+
 function getEmptyBoard3D(): BoardState3D {
   return Array.from({ length: BOARD_SIZE }, () =>
     Array.from({ length: BOARD_SIZE }, () =>
@@ -174,6 +269,40 @@ const stoneMaterialProps = (player: Player) => {
     };
   }
   return { color: 'transparent', opacity: 0 };
+};
+
+// Camera rotation controls component
+const CameraRotationControls: React.FC<{ onRotate: (azimuth: number, polar: number) => void }> = ({ onRotate }) => {
+  const ROTATION_STEP = Math.PI / 6; // 30 degrees
+
+  return (
+    <RotationControls>
+      {/* Row 1: Up-left, Up, Up-right */}
+      <RotationButton onClick={() => onRotate(-ROTATION_STEP, -ROTATION_STEP)}>↖</RotationButton>
+      <RotationButton onClick={() => onRotate(0, -ROTATION_STEP)}>↑</RotationButton>
+      <RotationButton onClick={() => onRotate(ROTATION_STEP, -ROTATION_STEP)}>↗</RotationButton>
+      
+      {/* Row 2: Left, Empty, Right */}
+      <RotationButton onClick={() => onRotate(-ROTATION_STEP, 0)}>←</RotationButton>
+      <div /> {/* Empty center space */}
+      <RotationButton onClick={() => onRotate(ROTATION_STEP, 0)}>→</RotationButton>
+      
+      {/* Row 3: Down-left, Down, Down-right */}
+      <RotationButton onClick={() => onRotate(-ROTATION_STEP, ROTATION_STEP)}>↙</RotationButton>
+      <RotationButton onClick={() => onRotate(0, ROTATION_STEP)}>↓</RotationButton>
+      <RotationButton onClick={() => onRotate(ROTATION_STEP, ROTATION_STEP)}>↘</RotationButton>
+    </RotationControls>
+  );
+};
+
+// Camera zoom controls component
+const CameraZoomControls: React.FC<{ onZoom: (factor: number) => void }> = ({ onZoom }) => {
+  return (
+    <ZoomControls>
+      <ZoomButton onClick={() => onZoom(1.2)}>−</ZoomButton>
+      <ZoomButton onClick={() => onZoom(0.8)}>+</ZoomButton>
+    </ZoomControls>
+  );
 };
 
 // Helper: Render a mini 3D grid and preview stone for the zoom-in preview
@@ -275,13 +404,57 @@ const App: React.FC = () => {
   const [winner, setWinner] = useState<Player>(0);
   const [hovered, setHovered] = useState<[number, number, number] | null>(null);
   // Camera sync state
-  const [cameraPos, setCameraPos] = useState<[number, number, number]>([10, 10, 18]);
-  const [cameraTarget, setCameraTarget] = useState<[number, number, number]>([0, 0, 0]);
+  const boardCenter = (BOARD_SIZE - 1) * 0.5 / 2; // Board center coordinate
+  const [cameraPos, setCameraPos] = useState<[number, number, number]>([10 + boardCenter, 10 + boardCenter, 18 + boardCenter]);
+  const [cameraTarget, setCameraTarget] = useState<[number, number, number]>([boardCenter, boardCenter, boardCenter]);
   // Handler to update camera state from main board
   const handleCameraChange = useCallback((pos: [number, number, number], target: [number, number, number]) => {
     setCameraPos(pos);
     setCameraTarget(target);
   }, []);
+
+  // Camera rotation utilities
+  const rotateCameraAroundTarget = useCallback((azimuthDelta: number, polarDelta: number) => {
+    const target = cameraTarget;
+    const currentPos = cameraPos;
+    
+    // Calculate current spherical coordinates relative to target
+    const dx = currentPos[0] - target[0];
+    const dy = currentPos[1] - target[1];
+    const dz = currentPos[2] - target[2];
+    
+    const radius = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    let azimuth = Math.atan2(dx, dz);
+    let polar = Math.acos(dy / radius);
+    
+    // Apply rotation deltas
+    azimuth += azimuthDelta;
+    polar = Math.max(0.1, Math.min(Math.PI - 0.1, polar + polarDelta)); // Clamp polar angle
+    
+    // Convert back to cartesian coordinates
+    const newX = target[0] + radius * Math.sin(polar) * Math.sin(azimuth);
+    const newY = target[1] + radius * Math.cos(polar);
+    const newZ = target[2] + radius * Math.sin(polar) * Math.cos(azimuth);
+    
+    setCameraPos([newX, newY, newZ]);
+  }, [cameraPos, cameraTarget]);
+
+  const zoomCamera = useCallback((zoomFactor: number) => {
+    const target = cameraTarget;
+    const currentPos = cameraPos;
+    
+    // Calculate direction vector from target to camera
+    const dx = currentPos[0] - target[0];
+    const dy = currentPos[1] - target[1];
+    const dz = currentPos[2] - target[2];
+    
+    // Apply zoom factor (> 1 zooms out, < 1 zooms in)
+    const newX = target[0] + dx * zoomFactor;
+    const newY = target[1] + dy * zoomFactor;
+    const newZ = target[2] + dz * zoomFactor;
+    
+    setCameraPos([newX, newY, newZ]);
+  }, [cameraPos, cameraTarget]);
 
   const handlePlaceStone = (x: number, y: number, z: number) => {
     if (board[z][y][x] !== 0 || winner) return;
@@ -336,6 +509,12 @@ const App: React.FC = () => {
         <Button onClick={handleRestart} style={{ marginTop: 24 }}>
           Restart Game
         </Button>
+        <CameraRotationControls 
+          onRotate={rotateCameraAroundTarget}
+        />
+        <CameraZoomControls 
+          onZoom={zoomCamera}
+        />
       </Container>
     </>
   );
