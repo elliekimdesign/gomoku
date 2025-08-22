@@ -6,26 +6,54 @@ import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard'
 const BOARD_SIZE = 8;
 const WIN_COUNT = 5;
 
-// Audio utility function for stone placement sounds using custom audio files
+// Preload audio files for better performance
+const audioCache = new Map<string, HTMLAudioElement>();
+
+const preloadAudio = (url: string): HTMLAudioElement => {
+  if (audioCache.has(url)) {
+    return audioCache.get(url)!;
+  }
+  
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  audio.volume = 0.6; // Adjust volume as needed (0.0 to 1.0)
+  audioCache.set(url, audio);
+  return audio;
+};
+
+// Initialize preloaded audio on module load
+const stoneAudio = preloadAudio('/sounds/stone.mp3');
+const winAudio = preloadAudio('/sounds/win.mp3');
+
+// Audio utility function for stone placement sounds using preloaded audio
 const playStoneSound = (player: Player) => {
   try {
-    // You can place your audio files in the public folder and reference them here
-    // For example: put "black-stone.mp3" and "white-stone.mp3" in public/sounds/
-    const soundFile = player === 1 ? '/sounds/black-stone.mp3' : '/sounds/white-stone.mp3';
+    // Using the same preloaded sound for both players
+    const audio = stoneAudio;
     
-    // Alternative: use the same sound for both players
-    // const soundFile = '/sounds/stone-place.mp3';
+    // Alternative: different sounds for each player (would need separate preloading)
+    // const audio = player === 1 ? preloadAudio('/sounds/black-stone.mp3') : preloadAudio('/sounds/white-stone.mp3');
     
-    const audio = new Audio(soundFile);
-    audio.volume = 0.5; // Adjust volume (0.0 to 1.0)
-    audio.currentTime = 0; // Reset to beginning in case it was played recently
-    
-    // Play the sound
+    // Reset to beginning and play
+    audio.currentTime = 0;
     audio.play().catch(error => {
       console.warn('Audio playback failed:', error);
     });
   } catch (error) {
     console.warn('Audio setup failed:', error);
+  }
+};
+
+// Audio utility function for win sound
+const playWinSound = () => {
+  try {
+    const audio = winAudio;
+    audio.currentTime = 0;
+    audio.play().catch(error => {
+      console.warn('Win audio playback failed:', error);
+    });
+  } catch (error) {
+    console.warn('Win audio setup failed:', error);
   }
 };
 
@@ -443,6 +471,8 @@ const App: React.FC = () => {
     const win = checkWinner3D(newBoard);
     if (win) {
       setWinner(win);
+      // Play win sound when someone wins
+      setTimeout(() => playWinSound(), 200); // Small delay after stone placement sound
     } else {
       setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
     }
