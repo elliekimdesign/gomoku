@@ -6,6 +6,29 @@ import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard'
 const BOARD_SIZE = 8;
 const WIN_COUNT = 5;
 
+// Audio utility function for stone placement sounds using custom audio files
+const playStoneSound = (player: Player) => {
+  try {
+    // You can place your audio files in the public folder and reference them here
+    // For example: put "black-stone.mp3" and "white-stone.mp3" in public/sounds/
+    const soundFile = player === 1 ? '/sounds/black-stone.mp3' : '/sounds/white-stone.mp3';
+    
+    // Alternative: use the same sound for both players
+    // const soundFile = '/sounds/stone-place.mp3';
+    
+    const audio = new Audio(soundFile);
+    audio.volume = 0.5; // Adjust volume (0.0 to 1.0)
+    audio.currentTime = 0; // Reset to beginning in case it was played recently
+    
+    // Play the sound
+    audio.play().catch(error => {
+      console.warn('Audio playback failed:', error);
+    });
+  } catch (error) {
+    console.warn('Audio setup failed:', error);
+  }
+};
+
 
 const GlobalStyle = createGlobalStyle`
   body {
@@ -410,6 +433,10 @@ const App: React.FC = () => {
 
   const handlePlaceStone = (x: number, y: number, z: number) => {
     if (board[z][y][x] !== 0 || winner) return;
+    
+    // Play sound for stone placement
+    playStoneSound(currentPlayer);
+    
     const newBoard = board.map(plane => plane.map(row => [...row]));
     newBoard[z][y][x] = currentPlayer;
     setBoard(newBoard);
