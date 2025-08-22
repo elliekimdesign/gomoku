@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard';
-import { Canvas } from '@react-three/fiber';
 
-const BOARD_SIZE = 5;
+
+const BOARD_SIZE = 8;
 const WIN_COUNT = 5;
-const CELL_SIZE = 1; // Assuming a unit cell size for the preview
+
 
 const GlobalStyle = createGlobalStyle`
   body {
@@ -34,19 +34,7 @@ const Title = styled.h1`
   letter-spacing: 0.01em;
 `;
 
-const Info = styled.div`
-  font-family: 'Inter', Arial, sans-serif;
-  font-size: 1rem;
-  color: #444;
-  margin-bottom: 1.5rem;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  padding: 0;
-  background: none;
-  border-radius: 0;
-  box-shadow: none;
-  display: block;
-`;
+
 
 const Button = styled.button`
   background: #222;
@@ -66,15 +54,11 @@ const Button = styled.button`
 
 const Layout = styled.div`
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   width: 100vw;
   max-width: 100vw;
-  @media (max-width: 900px) {
-    flex-direction: column;
-    align-items: center;
-  }
 `;
 
 const BoardWrapper = styled.div`
@@ -82,21 +66,81 @@ const BoardWrapper = styled.div`
   min-width: 0;
 `;
 
-const PreviewWrapper = styled.div`
-  width: 180px;
-  height: 180px;
-  margin-left: 2vw;
-  background: #f5f6fa;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+const TurnIndicator = styled.div`
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 50px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0,0,0,0.1);
+  min-width: 180px;
+  height: 70px;
+`;
+
+const StonePreview = styled.div`
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  @media (max-width: 900px) {
-    margin-left: 0;
-    margin-top: 2vw;
+  position: relative;
+  flex-shrink: 0;
+  
+  &.black {
+    background: linear-gradient(135deg, #23242b 0%, #3a3a5a 100%);
+    box-shadow: 
+      0 4px 12px rgba(35, 36, 43, 0.5),
+      inset 0 2px 4px rgba(255, 255, 255, 0.15),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  &.white {
+    background: linear-gradient(135deg, #ffffff 0%, #f7f6f2 100%);
+    box-shadow: 
+      0 4px 12px rgba(0, 0, 0, 0.2),
+      inset 0 2px 4px rgba(255, 255, 255, 0.8),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 15%;
+    left: 25%;
+    width: 35%;
+    height: 35%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    filter: blur(3px);
   }
 `;
+
+const TurnText = styled.div`
+  font-family: 'Inter', Arial, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  
+  &.black {
+    color: #23242b;
+  }
+  
+  &.white {
+    color: #444;
+  }
+`;
+
+
 
 const RotationControls = styled.div`
   position: fixed;
@@ -243,34 +287,7 @@ function checkWinner3D(board: BoardState3D): Player {
   return 0;
 }
 
-// Artistic stone material for preview (same as Gomoku3DBoard)
-const stoneMaterialProps = (player: Player) => {
-  if (player === 1) {
-    return {
-      color: '#23242b',
-      roughness: 0.22,
-      metalness: 0.55,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.13,
-      sheen: 1,
-      sheenColor: '#3a3a5a',
-      transmission: 0.07,
-    };
-  }
-  if (player === 2) {
-    return {
-      color: '#f7f6f2',
-      roughness: 0.15,
-      metalness: 0.38,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.09,
-      sheen: 1,
-      sheenColor: '#fffbe6',
-      transmission: 0.09,
-    };
-  }
-  return { color: 'transparent', opacity: 0 };
-};
+
 
 // Camera rotation controls component
 const CameraRotationControls: React.FC<{ onRotate: (azimuth: number, polar: number) => void }> = ({ onRotate }) => {
@@ -306,99 +323,31 @@ const CameraZoomControls: React.FC<{ onZoom: (factor: number) => void }> = ({ on
   );
 };
 
-
-// Helper: Render a mini 3D grid and preview stone for the zoom-in preview
-const MiniGridPreview: React.FC<{ hovered: [number, number, number], player: Player, cameraPos: [number, number, number], cameraTarget: [number, number, number] }> = ({ hovered, player, cameraPos, cameraTarget }) => {
-  // Only render a 3x3x3 grid centered on hovered
-  const size = 3;
-  const offset = 1;
-  const lines = [];
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) {
-      // X lines
-      lines.push(
-        <line key={`x-${i}-${j}`}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[new Float32Array([
-                0, i * CELL_SIZE, j * CELL_SIZE,
-                (size - 1) * CELL_SIZE, i * CELL_SIZE, j * CELL_SIZE,
-              ]), 3]}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#bbb" linewidth={1} transparent opacity={0.5} />
-        </line>
-      );
-      // Y lines
-      lines.push(
-        <line key={`y-${i}-${j}`}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[new Float32Array([
-                i * CELL_SIZE, 0, j * CELL_SIZE,
-                i * CELL_SIZE, (size - 1) * CELL_SIZE, j * CELL_SIZE,
-              ]), 3]}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#bbb" linewidth={1} transparent opacity={0.5} />
-        </line>
-      );
-      // Z lines
-      lines.push(
-        <line key={`z-${i}-${j}`}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[new Float32Array([
-                i * CELL_SIZE, j * CELL_SIZE, 0,
-                i * CELL_SIZE, j * CELL_SIZE, (size - 1) * CELL_SIZE,
-              ]), 3]}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#bbb" linewidth={1} transparent opacity={0.5} />
-        </line>
-      );
-    }
+// Visual turn indicator component
+const TurnIndicatorComponent: React.FC<{ currentPlayer: Player, winner: Player }> = ({ currentPlayer, winner }) => {
+  if (winner !== 0) {
+    return (
+      <TurnIndicator>
+        <StonePreview className={winner === 1 ? 'black' : 'white'} />
+        <TurnText className={winner === 1 ? 'black' : 'white'}>
+          {winner === 1 ? 'Black' : 'White'} Wins! 🎉
+        </TurnText>
+      </TurnIndicator>
+    );
   }
-  // Center the grid so hovered cell is at (0,0,0)
-  const center = (size - 1) * CELL_SIZE / 2;
-  // Calculate camera position relative to hovered cell
-  const relCam = [
-    cameraPos[0] - hovered[0] * CELL_SIZE,
-    cameraPos[1] - hovered[1] * CELL_SIZE,
-    cameraPos[2] - hovered[2] * CELL_SIZE,
-  ];
-  const relTarget = [
-    cameraTarget[0] - hovered[0] * CELL_SIZE,
-    cameraTarget[1] - hovered[1] * CELL_SIZE,
-    cameraTarget[2] - hovered[2] * CELL_SIZE,
-  ];
-  // Zoom in by scaling the camera distance
-  const zoom = 0.25;
-  const zoomedCam = relCam.map((v) => v * zoom) as [number, number, number];
+
   return (
-    <Canvas camera={{ position: zoomedCam, fov: 50 }} style={{ width: 160, height: 160 }}>
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[2, 2, 2]} intensity={0.7} />
-      <group position={[-center, -center, -center]}>
-        {lines}
-        {/* Cross dot at center */}
-        <mesh position={[offset * CELL_SIZE, offset * CELL_SIZE, offset * CELL_SIZE]}>
-          <sphereGeometry args={[0.08, 24, 24]} />
-          <meshStandardMaterial color={'#ffe066'} emissive={'#ffe066'} emissiveIntensity={1.2} transparent opacity={0.95} />
-        </mesh>
-        {/* Preview stone at center */}
-        <mesh position={[offset * CELL_SIZE, offset * CELL_SIZE, offset * CELL_SIZE]}>
-          <sphereGeometry args={[0.18, 32, 32]} />
-          <meshPhysicalMaterial {...stoneMaterialProps(player)} transparent opacity={0.7} />
-        </mesh>
-      </group>
-      {/* No controls for preview */}
-    </Canvas>
+    <TurnIndicator>
+      <StonePreview className={currentPlayer === 1 ? 'black' : 'white'} />
+      <TurnText className={currentPlayer === 1 ? 'black' : 'white'}>
+        {currentPlayer === 1 ? 'Black' : 'White'}'s Turn
+      </TurnText>
+    </TurnIndicator>
   );
 };
+
+
+
 
 const App: React.FC = () => {
   const [board, setBoard] = useState<BoardState3D>(getEmptyBoard3D());
@@ -472,6 +421,45 @@ const App: React.FC = () => {
     }
   };
 
+  // Undo functionality - removes the last placed stone
+  const handleUndo = useCallback(() => {
+    if (winner !== 0) return; // Can't undo if game is over
+    
+    // Find the last placed stone by scanning the board
+    let lastStone: [number, number, number] | null = null;
+    let lastPlayer: Player = 0;
+    
+    // Scan board from end to find the most recently placed stone
+    for (let z = BOARD_SIZE - 1; z >= 0; z--) {
+      for (let y = BOARD_SIZE - 1; y >= 0; y--) {
+        for (let x = BOARD_SIZE - 1; x >= 0; x--) {
+          if (board[z][y][x] !== 0) {
+            lastStone = [x, y, z];
+            lastPlayer = board[z][y][x];
+            break;
+          }
+        }
+        if (lastStone) break;
+      }
+      if (lastStone) break;
+    }
+    
+    if (lastStone) {
+      // Remove the last stone
+      const newBoard = board.map(plane => plane.map(row => [...row]));
+      newBoard[lastStone[2]][lastStone[1]][lastStone[0]] = 0;
+      setBoard(newBoard);
+      
+      // Revert to the player who placed that stone
+      setCurrentPlayer(lastPlayer);
+      
+      // Reset winner state (since we removed a stone)
+      setWinner(0);
+      
+      console.log('Undo completed: removed stone at', lastStone, 'player', lastPlayer);
+    }
+  }, [board, winner]);
+
 
   const handleRestart = () => {
     setBoard(getEmptyBoard3D());
@@ -479,22 +467,34 @@ const App: React.FC = () => {
     setWinner(0);
   };
 
+  // ESC key event listener for undo
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleUndo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleUndo]);
+
 
   return (
     <>
       <GlobalStyle />
       <Container>
         <Title>3D Gomoku Cube</Title>
-        <Info>
-          {winner
-            ? `${winner === 1 ? 'Black' : 'White'} wins!`
-            : `Current turn: ${currentPlayer === 1 ? 'Black' : 'White'}`}
-        </Info>
+        <TurnIndicatorComponent currentPlayer={currentPlayer} winner={winner} />
         <Layout>
           <BoardWrapper>
             <Gomoku3DBoard
               board={board}
               onPlaceStone={handlePlaceStone}
+              onUndo={handleUndo}
               currentPlayer={currentPlayer}
               winner={winner}
               hovered={hovered}
@@ -504,12 +504,6 @@ const App: React.FC = () => {
               onCameraChange={handleCameraChange}
             />
           </BoardWrapper>
-          {/* Small zoom-in preview */}
-          <PreviewWrapper>
-            {hovered && board[hovered[2]][hovered[1]][hovered[0]] === 0 && !winner && (
-              <MiniGridPreview hovered={hovered} player={currentPlayer} cameraPos={cameraPos} cameraTarget={cameraTarget} />
-            )}
-          </PreviewWrapper>
         </Layout>
         <Button onClick={handleRestart} style={{ marginTop: 24 }}>
           Restart Game

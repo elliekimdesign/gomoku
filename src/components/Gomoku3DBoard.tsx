@@ -1,6 +1,6 @@
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Html, Billboard } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 
@@ -10,6 +10,7 @@ export type BoardState3D = Player[][][];
 interface Gomoku3DCubeBoardProps {
   board: BoardState3D;
   onPlaceStone: (x: number, y: number, z: number) => void;
+  onUndo: () => void;
   currentPlayer: Player;
   winner: Player;
   hovered: [number, number, number] | null;
@@ -19,7 +20,7 @@ interface Gomoku3DCubeBoardProps {
   onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void;
 }
 
-const BOARD_SIZE = 5;
+const BOARD_SIZE = 8;
 const CELL_SIZE = 0.5;
 const BOARD_LENGTH = (BOARD_SIZE - 1) * CELL_SIZE;
 
@@ -121,7 +122,7 @@ const CameraSync: React.FC<{ cameraPos: [number, number, number], cameraTarget: 
   return null;
 };
 
-export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange }) => {
+export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange }) => {
   // Handler for OrbitControls change
   const handleControlsChange = (e: any) => {
     const cam = e.target.object;
@@ -143,23 +144,23 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
         <CameraSync cameraPos={cameraPos} cameraTarget={cameraTarget} onCameraChange={onCameraChange} />
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, 20, 20]} intensity={0.7} />
-        {/* 3D Grid Lines */}
-        <GridLines3D />
-        {/* Artistic Stones (no bump) */}
-        {board.map((plane, z) =>
-          plane.map((row, y) =>
-            row.map((cell, x) =>
-              cell !== 0 ? (
-                <mesh
-                  key={`stone-${x}-${y}-${z}`}
-                  position={[x * CELL_SIZE, y * CELL_SIZE, z * CELL_SIZE]}
-                  castShadow
-                >
-                  <sphereGeometry args={[0.18, 32, 32]} />
-                  <meshPhysicalMaterial {...stoneMaterialProps(cell)} />
-                </mesh>
-              ) : null
-            )
+          {/* 3D Grid Lines */}
+          <GridLines3D />
+          {/* Artistic Stones (no bump) */}
+          {board.map((plane, z) =>
+            plane.map((row, y) =>
+              row.map((cell, x) =>
+                cell !== 0 ? (
+                  <mesh
+                    key={`stone-${x}-${y}-${z}`}
+                    position={[x * CELL_SIZE, y * CELL_SIZE, z * CELL_SIZE]}
+                    castShadow
+                  >
+                    <sphereGeometry args={[0.18, 32, 32]} />
+                    <meshPhysicalMaterial {...stoneMaterialProps(cell)} />
+                  </mesh>
+                ) : null
+              )
           )
         )}
         {/* Clickable dots at every empty position */}
