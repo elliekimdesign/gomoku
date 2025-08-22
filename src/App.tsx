@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard';
 import { Canvas } from '@react-three/fiber';
 
-const BOARD_SIZE = 10;
+const BOARD_SIZE = 5;
 const WIN_COUNT = 5;
 const CELL_SIZE = 1; // Assuming a unit cell size for the preview
 
@@ -128,6 +128,7 @@ const ZoomControls = styled.div`
   z-index: 1000;
   backdrop-filter: blur(10px);
 `;
+
 
 const RotationButton = styled.button`
   width: 40px;
@@ -305,6 +306,7 @@ const CameraZoomControls: React.FC<{ onZoom: (factor: number) => void }> = ({ on
   );
 };
 
+
 // Helper: Render a mini 3D grid and preview stone for the zoom-in preview
 const MiniGridPreview: React.FC<{ hovered: [number, number, number], player: Player, cameraPos: [number, number, number], cameraTarget: [number, number, number] }> = ({ hovered, player, cameraPos, cameraTarget }) => {
   // Only render a 3x3x3 grid centered on hovered
@@ -456,6 +458,7 @@ const App: React.FC = () => {
     setCameraPos([newX, newY, newZ]);
   }, [cameraPos, cameraTarget]);
 
+
   const handlePlaceStone = (x: number, y: number, z: number) => {
     if (board[z][y][x] !== 0 || winner) return;
     const newBoard = board.map(plane => plane.map(row => [...row]));
@@ -469,11 +472,13 @@ const App: React.FC = () => {
     }
   };
 
+
   const handleRestart = () => {
     setBoard(getEmptyBoard3D());
     setCurrentPlayer(1);
     setWinner(0);
   };
+
 
   return (
     <>

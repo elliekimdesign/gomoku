@@ -19,7 +19,7 @@ interface Gomoku3DCubeBoardProps {
   onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void;
 }
 
-const BOARD_SIZE = 10;
+const BOARD_SIZE = 5;
 const CELL_SIZE = 0.5;
 const BOARD_LENGTH = (BOARD_SIZE - 1) * CELL_SIZE;
 
@@ -162,134 +162,20 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
             )
           )
         )}
-        {/* Hover cross/dot at intersection */}
-        {hovered && board[hovered[2]][hovered[1]][hovered[0]] === 0 && !winner && (
-          <>
-            {/* X axis (red) */}
-            <line>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[new Float32Array([
-                    (hovered[0] - 0.5) * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE,
-                    (hovered[0] + 0.5) * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE,
-                  ]), 3]}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial color="#ff5555" linewidth={6} />
-            </line>
-            {/* Y axis (green) */}
-            <line>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[new Float32Array([
-                    hovered[0] * CELL_SIZE, (hovered[1] - 0.5) * CELL_SIZE, hovered[2] * CELL_SIZE,
-                    hovered[0] * CELL_SIZE, (hovered[1] + 0.5) * CELL_SIZE, hovered[2] * CELL_SIZE,
-                  ]), 3]}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial color="#55ff55" linewidth={6} />
-            </line>
-            {/* Z axis (blue) */}
-            <line>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[new Float32Array([
-                    hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, (hovered[2] - 0.5) * CELL_SIZE,
-                    hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, (hovered[2] + 0.5) * CELL_SIZE,
-                  ]), 3]}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial color="#5599ff" linewidth={6} />
-            </line>
-          </>
-        )}
-        {/* Hover crosshair at intersection (defensive) */}
-        {hovered && Array.isArray(hovered) && hovered.length === 3 && hovered.every(isFinite) && board[hovered[2]][hovered[1]][hovered[0]] === 0 && !winner && (
-          <>
-            {/* Glowing disc perpendicular to camera for crosshair effect */}
-            <Billboard position={[hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE]}>
-              <mesh>
-                <circleGeometry args={[0.28, 48]} />
-                <meshBasicMaterial color={'#ffe066'} transparent opacity={0.35} />
-              </mesh>
-            </Billboard>
-            {/* X axis (red) */}
-            <line>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[new Float32Array([
-                    (hovered[0] - 0.5) * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE,
-                    (hovered[0] + 0.5) * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE,
-                  ]), 3]}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial color="#ff5555" linewidth={6} />
-            </line>
-            {/* Y axis (green) */}
-            <line>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[new Float32Array([
-                    hovered[0] * CELL_SIZE, (hovered[1] - 0.5) * CELL_SIZE, hovered[2] * CELL_SIZE,
-                    hovered[0] * CELL_SIZE, (hovered[1] + 0.5) * CELL_SIZE, hovered[2] * CELL_SIZE,
-                  ]), 3]}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial color="#55ff55" linewidth={6} />
-            </line>
-            {/* Z axis (blue) */}
-            <line>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[new Float32Array([
-                    hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, (hovered[2] - 0.5) * CELL_SIZE,
-                    hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, (hovered[2] + 0.5) * CELL_SIZE,
-                  ]), 3]}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial color="#5599ff" linewidth={6} />
-            </line>
-          </>
-        )}
-        {/* Hover crosshair at intersection */}
-        {hovered && board[hovered[2]][hovered[1]][hovered[0]] === 0 && !winner && (
-          <mesh
-            position={[hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE]}
-          >
-            <sphereGeometry args={[0.08, 24, 24]} />
-            <meshStandardMaterial color={'#ffe066'} emissive={'#ffe066'} emissiveIntensity={1.2} transparent opacity={0.95} />
-          </mesh>
-        )}
-        {/* Artistic preview stone (no bump) */}
-        {hovered && board[hovered[2]][hovered[1]][hovered[0]] === 0 && !winner && (
-          <mesh
-            position={[hovered[0] * CELL_SIZE, hovered[1] * CELL_SIZE, hovered[2] * CELL_SIZE]}
-          >
-            <sphereGeometry args={[0.18, 32, 32]} />
-            <meshPhysicalMaterial {...stoneMaterialProps(currentPlayer)} transparent opacity={0.4} />
-          </mesh>
-        )}
-        {/* Clickable cells with hover */}
+        {/* Clickable dots at every empty position */}
         {board.map((plane, z) =>
           plane.map((row, y) =>
             row.map((cell, x) =>
               cell === 0 && !winner ? (
                 <mesh
-                  key={`cell-${x}-${y}-${z}`}
+                  key={`dot-${x}-${y}-${z}`}
                   position={[x * CELL_SIZE, y * CELL_SIZE, z * CELL_SIZE]}
+                  onClick={() => onPlaceStone(x, y, z)}
                   onPointerOver={() => setHovered([x, y, z])}
                   onPointerOut={() => setHovered(null)}
-                  onClick={() => onPlaceStone(x, y, z)}
-                  visible={false}
                 >
-                  <sphereGeometry args={[0.18, 16, 16]} />
-                  <meshStandardMaterial transparent opacity={0} />
+                  <sphereGeometry args={[0.02, 8, 8]} />
+                  <meshBasicMaterial color={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? "#ff0000" : "#888888"} />
                 </mesh>
               ) : null
             )
