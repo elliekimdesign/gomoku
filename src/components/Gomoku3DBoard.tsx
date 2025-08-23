@@ -18,6 +18,7 @@ interface Gomoku3DCubeBoardProps {
   cameraPos: [number, number, number];
   cameraTarget: [number, number, number];
   onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void;
+  ghostStone: { x: number; y: number; z: number; player: Player } | null;
 }
 
 const BOARD_SIZE = 8;
@@ -122,7 +123,7 @@ const CameraSync: React.FC<{ cameraPos: [number, number, number], cameraTarget: 
   return null;
 };
 
-export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange }) => {
+export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone }) => {
   // Handler for OrbitControls change
   const handleControlsChange = (e: any) => {
     const cam = e.target.object;
@@ -163,11 +164,64 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
               )
           )
         )}
+        
+        {/* Beautiful Ghost Stone */}
+        {ghostStone && (
+          <mesh
+            key={`ghost-stone-${ghostStone.x}-${ghostStone.y}-${ghostStone.z}`}
+            position={[ghostStone.x * CELL_SIZE, ghostStone.y * CELL_SIZE, ghostStone.z * CELL_SIZE]}
+            castShadow
+            onClick={() => onPlaceStone(ghostStone.x, ghostStone.y, ghostStone.z)}
+            onPointerOver={() => setHovered([ghostStone.x, ghostStone.y, ghostStone.z])}
+            onPointerOut={() => setHovered(null)}
+          >
+            <sphereGeometry args={[0.18, 32, 32]} />
+            <meshPhysicalMaterial 
+              {...stoneMaterialProps(ghostStone.player)} 
+              transparent 
+              opacity={0.6}
+              emissive={ghostStone.player === 1 ? '#23242b' : '#ffffff'}
+              emissiveIntensity={0.1}
+            />
+            {/* Glowing ring around ghost stone */}
+            <mesh position={[0, 0, 0]}>
+              <ringGeometry args={[0.22, 0.28, 32]} />
+              <meshBasicMaterial 
+                color={ghostStone.player === 1 ? '#60A5FA' : '#F1F5F9'} 
+                transparent 
+                opacity={0.8}
+                side={2} // DoubleSide
+              />
+            </mesh>
+            {/* Pulsing center dot */}
+            <mesh position={[0, 0, 0]}>
+              <sphereGeometry args={[0.04, 16, 16]} />
+              <meshStandardMaterial 
+                color={ghostStone.player === 1 ? '#3B82F6' : '#E2E8F0'} 
+                transparent 
+                opacity={0.9}
+                emissive={ghostStone.player === 1 ? '#3B82F6' : '#E2E8F0'}
+                emissiveIntensity={0.3}
+              />
+            </mesh>
+            
+            {/* Invisible larger clickable area for easier clicking */}
+            <mesh 
+              position={[0, 0, 0]}
+              onClick={() => onPlaceStone(ghostStone.x, ghostStone.y, ghostStone.z)}
+              visible={false}
+            >
+              <sphereGeometry args={[0.25, 16, 16]} />
+              <meshBasicMaterial transparent opacity={0} />
+            </mesh>
+          </mesh>
+        )}
+        
         {/* Clickable dots at every empty position */}
         {board.map((plane, z) =>
           plane.map((row, y) =>
             row.map((cell, x) =>
-              cell === 0 && !winner ? (
+              cell === 0 && !winner && !(ghostStone && ghostStone.x === x && ghostStone.y === y && ghostStone.z === z) ? (
                 <mesh
                   key={`dot-${x}-${y}-${z}`}
                   position={[x * CELL_SIZE, y * CELL_SIZE, z * CELL_SIZE]}
@@ -190,6 +244,15 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
           enablePan={true}
           minDistance={2}
           maxDistance={60}
+          enableDamping={true}
+          dampingFactor={0.05}
+          rotateSpeed={0.5}
+          panSpeed={0.8}
+          zoomSpeed={1.0}
+          enableZoom={true}
+          enableRotate={true}
+          maxPolarAngle={Math.PI}
+          minPolarAngle={0}
           onChange={handleControlsChange}
           target={cameraTarget}
         />

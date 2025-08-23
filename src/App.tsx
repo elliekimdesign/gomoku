@@ -342,7 +342,7 @@ function checkWinner3D(board: BoardState3D): Player {
 
 // Camera rotation controls component
 const CameraRotationControls: React.FC<{ onRotate: (azimuth: number, polar: number) => void }> = ({ onRotate }) => {
-  const ROTATION_STEP = Math.PI / 6; // 30 degrees
+  const ROTATION_STEP = Math.PI / 8; // 22.5 degrees - smoother rotation
 
   return (
     <RotationControls>
@@ -400,11 +400,21 @@ const TurnIndicatorComponent: React.FC<{ currentPlayer: Player, winner: Player }
 
 
 
+// Move history type for tracking stone placement order
+type Move = {
+  x: number;
+  y: number;
+  z: number;
+  player: Player;
+};
+
 const App: React.FC = () => {
   const [board, setBoard] = useState<BoardState3D>(getEmptyBoard3D());
   const [currentPlayer, setCurrentPlayer] = useState<Player>(1);
   const [winner, setWinner] = useState<Player>(0);
   const [hovered, setHovered] = useState<[number, number, number] | null>(null);
+  const [moveHistory, setMoveHistory] = useState<Move[]>([]);
+  const [ghostStone, setGhostStone] = useState<{ x: number; y: number; z: number; player: Player } | null>(null);
   // Camera sync state
   const boardCenter = (BOARD_SIZE - 1) * 0.5 / 2; // Board center coordinate
   const [cameraPos, setCameraPos] = useState<[number, number, number]>([10 + boardCenter, 10 + boardCenter, 18 + boardCenter]);
@@ -415,7 +425,7 @@ const App: React.FC = () => {
     setCameraTarget(target);
   }, []);
 
-  // Camera rotation utilities
+  // Camera rotation utilities with smooth transitions
   const rotateCameraAroundTarget = useCallback((azimuthDelta: number, polarDelta: number) => {
     const target = cameraTarget;
     const currentPos = cameraPos;
@@ -427,18 +437,21 @@ const App: React.FC = () => {
     
     const radius = Math.sqrt(dx * dx + dy * dy + dz * dz);
     let azimuth = Math.atan2(dx, dz);
-    let polar = Math.acos(dy / radius);
+    let polar = Math.acos(Math.max(-1, Math.min(1, dy / radius))); // Clamp to prevent NaN
     
-    // Apply rotation deltas
-    azimuth += azimuthDelta;
-    polar = Math.max(0.1, Math.min(Math.PI - 0.1, polar + polarDelta)); // Clamp polar angle
+    // Apply rotation deltas with smoother steps
+    azimuth += azimuthDelta * 0.8; // Reduce rotation speed for smoothness
+    polar = Math.max(0.1, Math.min(Math.PI - 0.1, polar + polarDelta * 0.8));
     
     // Convert back to cartesian coordinates
     const newX = target[0] + radius * Math.sin(polar) * Math.sin(azimuth);
     const newY = target[1] + radius * Math.cos(polar);
     const newZ = target[2] + radius * Math.sin(polar) * Math.cos(azimuth);
     
-    setCameraPos([newX, newY, newZ]);
+    // Use requestAnimationFrame for smooth updates
+    requestAnimationFrame(() => {
+      setCameraPos([newX, newY, newZ]);
+    });
   }, [cameraPos, cameraTarget]);
 
   const zoomCamera = useCallback((zoomFactor: number) => {
@@ -450,78 +463,101 @@ const App: React.FC = () => {
     const dy = currentPos[1] - target[1];
     const dz = currentPos[2] - target[2];
     
-    // Apply zoom factor (> 1 zooms out, < 1 zooms in)
-    const newX = target[0] + dx * zoomFactor;
-    const newY = target[1] + dy * zoomFactor;
-    const newZ = target[2] + dz * zoomFactor;
+    // Apply zoom factor with bounds checking
+    const currentDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const newDistance = currentDistance * zoomFactor;
     
-    setCameraPos([newX, newY, newZ]);
+    // Clamp zoom distance to reasonable bounds
+    const clampedDistance = Math.max(2, Math.min(60, newDistance));
+    const actualZoomFactor = clampedDistance / currentDistance;
+    
+    // Apply smooth zoom
+    const newX = target[0] + dx * actualZoomFactor;
+    const newY = target[1] + dy * actualZoomFactor;
+    const newZ = target[2] + dz * actualZoomFactor;
+    
+    // Use requestAnimationFrame for smooth updates
+    requestAnimationFrame(() => {
+      setCameraPos([newX, newY, newZ]);
+    });
   }, [cameraPos, cameraTarget]);
 
 
   const handlePlaceStone = (x: number, y: number, z: number) => {
     if (board[z][y][x] !== 0 || winner) return;
     
-    // Play sound for stone placement
-    playStoneSound(currentPlayer);
-    
-    const newBoard = board.map(plane => plane.map(row => [...row]));
-    newBoard[z][y][x] = currentPlayer;
-    setBoard(newBoard);
-    const win = checkWinner3D(newBoard);
-    if (win) {
-      setWinner(win);
-      // Play win sound when someone wins
-      setTimeout(() => playWinSound(), 200); // Small delay after stone placement sound
+    // Check if there's already a ghost stone at this position
+    if (ghostStone && ghostStone.x === x && ghostStone.y === y && ghostStone.z === z) {
+      // Second click - place the stone permanently
+      
+      // Play sound for stone placement
+      playStoneSound(currentPlayer);
+      
+      const newBoard = board.map(plane => plane.map(row => [...row]));
+      newBoard[z][y][x] = currentPlayer;
+      setBoard(newBoard);
+      
+      // Add move to history
+      const newMove: Move = { x, y, z, player: currentPlayer };
+      setMoveHistory(prev => [...prev, newMove]);
+      
+      // Clear ghost stone
+      setGhostStone(null);
+      
+      // Check for winner
+      const win = checkWinner3D(newBoard);
+      if (win) {
+        setWinner(win);
+        // Play win sound when someone wins
+        setTimeout(() => playWinSound(), 200); // Small delay after stone placement sound
+      } else {
+        setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
+      }
     } else {
-      setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
+      // First click - place ghost stone
+      setGhostStone({ x, y, z, player: currentPlayer });
     }
   };
 
-  // Undo functionality - removes the last placed stone
+  // Undo functionality - removes ghost stone or chronologically latest stone
   const handleUndo = useCallback(() => {
-    if (winner !== 0) return; // Can't undo if game is over
-    
-    // Find the last placed stone by scanning the board
-    let lastStone: [number, number, number] | null = null;
-    let lastPlayer: Player = 0;
-    
-    // Scan board from end to find the most recently placed stone
-    for (let z = BOARD_SIZE - 1; z >= 0; z--) {
-      for (let y = BOARD_SIZE - 1; y >= 0; y--) {
-        for (let x = BOARD_SIZE - 1; x >= 0; x--) {
-          if (board[z][y][x] !== 0) {
-            lastStone = [x, y, z];
-            lastPlayer = board[z][y][x];
-            break;
-          }
-        }
-        if (lastStone) break;
-      }
-      if (lastStone) break;
+    // If there's a ghost stone, remove it first
+    if (ghostStone) {
+      setGhostStone(null);
+      console.log('Ghost stone cancelled');
+      return;
     }
     
-    if (lastStone) {
-      // Remove the last stone
-      const newBoard = board.map(plane => plane.map(row => [...row]));
-      newBoard[lastStone[2]][lastStone[1]][lastStone[0]] = 0;
-      setBoard(newBoard);
-      
-      // Revert to the player who placed that stone
-      setCurrentPlayer(lastPlayer);
-      
-      // Reset winner state (since we removed a stone)
-      setWinner(0);
-      
-      console.log('Undo completed: removed stone at', lastStone, 'player', lastPlayer);
-    }
-  }, [board, winner]);
+    // Otherwise, undo the last placed stone
+    if (winner !== 0 || moveHistory.length === 0) return; // Can't undo if game is over or no moves
+    
+    // Get the last move from history
+    const lastMove = moveHistory[moveHistory.length - 1];
+    
+    // Remove the stone from the board
+    const newBoard = board.map(plane => plane.map(row => [...row]));
+    newBoard[lastMove.z][lastMove.y][lastMove.x] = 0;
+    setBoard(newBoard);
+    
+    // Remove the move from history
+    setMoveHistory(prev => prev.slice(0, -1));
+    
+    // Revert to the player who placed that stone (so they can play again)
+    setCurrentPlayer(lastMove.player);
+    
+    // Reset winner state (since we removed a stone)
+    setWinner(0);
+    
+    console.log('Undo completed: removed stone at', [lastMove.x, lastMove.y, lastMove.z], 'player', lastMove.player);
+  }, [board, winner, moveHistory, ghostStone]);
 
 
   const handleRestart = () => {
     setBoard(getEmptyBoard3D());
     setCurrentPlayer(1);
     setWinner(0);
+    setMoveHistory([]); // Clear move history
+    setGhostStone(null); // Clear ghost stone
   };
 
   // ESC key event listener for undo
@@ -559,6 +595,7 @@ const App: React.FC = () => {
               cameraPos={cameraPos}
               cameraTarget={cameraTarget}
               onCameraChange={handleCameraChange}
+              ghostStone={ghostStone}
             />
           </BoardWrapper>
         </Layout>
