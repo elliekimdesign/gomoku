@@ -342,7 +342,7 @@ function checkWinner3D(board: BoardState3D): Player {
 
 // Camera rotation controls component
 const CameraRotationControls: React.FC<{ onRotate: (azimuth: number, polar: number) => void }> = ({ onRotate }) => {
-  const ROTATION_STEP = Math.PI / 8; // 22.5 degrees - smoother rotation
+  const ROTATION_STEP = Math.PI / 4; // 45 degrees - more responsive rotation
 
   return (
     <RotationControls>
@@ -425,7 +425,7 @@ const App: React.FC = () => {
     setCameraTarget(target);
   }, []);
 
-  // Camera rotation utilities with smooth transitions
+  // Camera rotation utilities with smooth transitions and no constraints
   const rotateCameraAroundTarget = useCallback((azimuthDelta: number, polarDelta: number) => {
     const target = cameraTarget;
     const currentPos = cameraPos;
@@ -439,9 +439,12 @@ const App: React.FC = () => {
     let azimuth = Math.atan2(dx, dz);
     let polar = Math.acos(Math.max(-1, Math.min(1, dy / radius))); // Clamp to prevent NaN
     
-    // Apply rotation deltas with smoother steps
-    azimuth += azimuthDelta * 0.8; // Reduce rotation speed for smoothness
-    polar = Math.max(0.1, Math.min(Math.PI - 0.1, polar + polarDelta * 0.8));
+    // Apply rotation deltas with full freedom - no constraints
+    azimuth += azimuthDelta;
+    polar += polarDelta;
+    
+    // Allow full 360° rotation - no clamping of polar angle
+    // This enables the cube to be viewed from any angle including upside down
     
     // Convert back to cartesian coordinates
     const newX = target[0] + radius * Math.sin(polar) * Math.sin(azimuth);

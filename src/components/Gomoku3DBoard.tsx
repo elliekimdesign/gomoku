@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Html } from '@react-three/drei';
-import { useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
+import { useThree, useFrame } from '@react-three/fiber';
 import { useEffect } from 'react';
+import * as THREE from 'three';
 
 export type Player = 0 | 1 | 2; // 0: empty, 1: black, 2: white
 export type BoardState3D = Player[][][];
@@ -113,23 +114,114 @@ const GridLines3D: React.FC = () => {
   return <>{lines}</>;
 };
 
-// CameraSync component for use inside <Canvas>
-const CameraSync: React.FC<{ cameraPos: [number, number, number], cameraTarget: [number, number, number], onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void }> = ({ cameraPos, cameraTarget, onCameraChange }) => {
-  const { camera } = useThree();
+// Custom Camera Controller with unlimited rotation
+const CustomCameraController: React.FC<{
+  target: [number, number, number];
+  onCameraChange: (position: [number, number, number], target: [number, number, number]) => void;
+}> = ({ target, onCameraChange }) => {
+  const { camera, gl } = useThree();
+  const [isRotating, setIsRotating] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  
+  // Use refs for smooth interpolation
+  const currentSpherical = useRef(new THREE.Spherical(15, Math.PI / 2, 0));
+  const targetSpherical = useRef(new THREE.Spherical(15, Math.PI / 2, 0));
+  const velocity = useRef({ theta: 0, phi: 0 });
+  const targetVector = new THREE.Vector3(...target);
+
+  // Smooth interpolation parameters
+  const dampingFactor = 0.08;
+  const velocityDamping = 0.92;
+
+  // Mouse event handlers with velocity-based smooth rotation
+  const handleMouseDown = useCallback((event: MouseEvent) => {
+    setIsRotating(true);
+    setLastMousePos({ x: event.clientX, y: event.clientY });
+    // Reset velocity when starting new drag
+    velocity.current = { theta: 0, phi: 0 };
+  }, []);
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!isRotating) return;
+
+    const deltaX = event.clientX - lastMousePos.x;
+    const deltaY = event.clientY - lastMousePos.y;
+
+    // Update velocity for smooth movement
+    velocity.current.theta = -deltaX * 0.01;
+    velocity.current.phi = deltaY * 0.01;
+
+    // Update target spherical coordinates
+    targetSpherical.current.theta += velocity.current.theta;
+    targetSpherical.current.phi += velocity.current.phi;
+    
+    // Keep radius within reasonable bounds
+    targetSpherical.current.radius = Math.max(2, Math.min(60, targetSpherical.current.radius));
+
+    setLastMousePos({ x: event.clientX, y: event.clientY });
+  }, [isRotating, lastMousePos]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsRotating(false);
+  }, []);
+
+  const handleWheel = useCallback((event: WheelEvent) => {
+    event.preventDefault();
+    const zoomDelta = event.deltaY * 0.01;
+    targetSpherical.current.radius += zoomDelta;
+    targetSpherical.current.radius = Math.max(2, Math.min(60, targetSpherical.current.radius));
+  }, []);
+
+  // Set up event listeners
   useEffect(() => {
-    camera.position.set(...cameraPos);
-    camera.lookAt(...cameraTarget);
-  }, [camera, cameraPos, cameraTarget]);
+    const canvas = gl.domElement;
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('wheel', handleWheel);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [gl.domElement, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel]);
+
+  // Smooth interpolation and camera update every frame
+  useFrame(() => {
+    // Apply velocity damping when not actively rotating
+    if (!isRotating) {
+      velocity.current.theta *= velocityDamping;
+      velocity.current.phi *= velocityDamping;
+      
+      // Continue applying small velocity for momentum
+      if (Math.abs(velocity.current.theta) > 0.001 || Math.abs(velocity.current.phi) > 0.001) {
+        targetSpherical.current.theta += velocity.current.theta;
+        targetSpherical.current.phi += velocity.current.phi;
+      }
+    }
+
+    // Smooth interpolation between current and target spherical coordinates
+    currentSpherical.current.theta += (targetSpherical.current.theta - currentSpherical.current.theta) * dampingFactor;
+    currentSpherical.current.phi += (targetSpherical.current.phi - currentSpherical.current.phi) * dampingFactor;
+    currentSpherical.current.radius += (targetSpherical.current.radius - currentSpherical.current.radius) * dampingFactor;
+
+    // Update camera position based on smoothed spherical coordinates
+    const position = new THREE.Vector3();
+    position.setFromSpherical(currentSpherical.current);
+    position.add(targetVector);
+    
+    camera.position.copy(position);
+    camera.lookAt(targetVector);
+    
+    onCameraChange([position.x, position.y, position.z], target);
+  });
+
   return null;
 };
 
 export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone }) => {
-  // Handler for OrbitControls change
-  const handleControlsChange = (e: any) => {
-    const cam = e.target.object;
-    const tgt = e.target.target;
-    onCameraChange([cam.position.x, cam.position.y, cam.position.z], [tgt.x, tgt.y, tgt.z]);
-  };
 
   // Memoize the bumpMap so it's only generated once
   // const bumpMap = useMemo(() => {
@@ -142,7 +234,7 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
   return (
     <div style={{ width: '100vw', height: '80vh', margin: '0 auto', maxWidth: '100vw', maxHeight: '100vh' }}>
       <Canvas camera={{ position: cameraPos, fov: 50 }} style={{ width: '100%', height: '100%' }}>
-        <CameraSync cameraPos={cameraPos} cameraTarget={cameraTarget} onCameraChange={onCameraChange} />
+        <CustomCameraController target={cameraTarget} onCameraChange={onCameraChange} />
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, 20, 20]} intensity={0.7} />
           {/* 3D Grid Lines */}
@@ -183,16 +275,7 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
               emissive={ghostStone.player === 1 ? '#23242b' : '#ffffff'}
               emissiveIntensity={0.1}
             />
-            {/* Glowing ring around ghost stone */}
-            <mesh position={[0, 0, 0]}>
-              <ringGeometry args={[0.22, 0.28, 32]} />
-              <meshBasicMaterial 
-                color={ghostStone.player === 1 ? '#60A5FA' : '#F1F5F9'} 
-                transparent 
-                opacity={0.8}
-                side={2} // DoubleSide
-              />
-            </mesh>
+
             {/* Pulsing center dot */}
             <mesh position={[0, 0, 0]}>
               <sphereGeometry args={[0.04, 16, 16]} />
@@ -240,22 +323,7 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
         <directionalLight position={[0, 20, 0]} intensity={0.7} color={'#ffe6b3'} />
         <directionalLight position={[-20, 10, 20]} intensity={0.25} color={'#b3d1ff'} />
         <ambientLight intensity={0.8} color={'#f5f6fa'} />
-        <OrbitControls
-          enablePan={true}
-          minDistance={2}
-          maxDistance={60}
-          enableDamping={true}
-          dampingFactor={0.05}
-          rotateSpeed={0.5}
-          panSpeed={0.8}
-          zoomSpeed={1.0}
-          enableZoom={true}
-          enableRotate={true}
-          maxPolarAngle={Math.PI}
-          minPolarAngle={0}
-          onChange={handleControlsChange}
-          target={cameraTarget}
-        />
+
         {/* Overlay for winner */}
         {winner !== 0 && (
           <Html center style={{ pointerEvents: 'none' }}>
