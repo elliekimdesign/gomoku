@@ -26,7 +26,9 @@ const stoneAudio = preloadAudio('/sounds/stone.mp3');
 const winAudio = preloadAudio('/sounds/win.mp3');
 
 // Audio utility function for stone placement sounds using preloaded audio
-const playStoneSound = (player: Player) => {
+const playStoneSound = (player: Player, isMuted: boolean) => {
+  if (isMuted) return; // Skip audio if muted
+  
   try {
     // Using the same preloaded sound for both players
     const audio = stoneAudio;
@@ -45,7 +47,9 @@ const playStoneSound = (player: Player) => {
 };
 
 // Audio utility function for win sound
-const playWinSound = () => {
+const playWinSound = (isMuted: boolean) => {
+  if (isMuted) return; // Skip audio if muted
+  
   try {
     const audio = winAudio;
     audio.currentTime = 0;
@@ -289,6 +293,56 @@ const ZoomButton = styled.button`
   }
 `;
 
+const MuteControls = styled.div`
+  position: fixed;
+  bottom: 250px;
+  right: 88px;
+  transform: translateX(50%);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  display: flex;
+  gap: 4px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+`;
+
+const MuteButton = styled.button`
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  color: #444;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    background: #f0f0f0;
+    border-color: #bbb;
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    background: #e8e8e8;
+  }
+  
+  &.muted {
+    color: #e74c3c;
+    border-color: #e74c3c;
+    
+    &:hover {
+      background: #fdf2f2;
+    }
+  }
+`;
+
 function getEmptyBoard3D(): BoardState3D {
   return Array.from({ length: BOARD_SIZE }, () =>
     Array.from({ length: BOARD_SIZE }, () =>
@@ -415,6 +469,7 @@ const App: React.FC = () => {
   const [hovered, setHovered] = useState<[number, number, number] | null>(null);
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
   const [ghostStone, setGhostStone] = useState<{ x: number; y: number; z: number; player: Player } | null>(null);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   // Camera sync state
   const boardCenter = (BOARD_SIZE - 1) * 0.5 / 2; // Board center coordinate
   const [cameraPos, setCameraPos] = useState<[number, number, number]>([10 + boardCenter, 10 + boardCenter, 18 + boardCenter]);
@@ -494,7 +549,7 @@ const App: React.FC = () => {
       // Second click - place the stone permanently
       
       // Play sound for stone placement
-      playStoneSound(currentPlayer);
+      playStoneSound(currentPlayer, isMuted);
       
       const newBoard = board.map(plane => plane.map(row => [...row]));
       newBoard[z][y][x] = currentPlayer;
@@ -512,7 +567,7 @@ const App: React.FC = () => {
       if (win) {
         setWinner(win);
         // Play win sound when someone wins
-        setTimeout(() => playWinSound(), 200); // Small delay after stone placement sound
+        setTimeout(() => playWinSound(isMuted), 200); // Small delay after stone placement sound
       } else {
         setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
       }
@@ -563,6 +618,10 @@ const App: React.FC = () => {
     setGhostStone(null); // Clear ghost stone
   };
 
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+
   // ESC key event listener for undo
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -611,6 +670,15 @@ const App: React.FC = () => {
         <CameraZoomControls 
           onZoom={zoomCamera}
         />
+        <MuteControls>
+          <MuteButton 
+            onClick={toggleMute}
+            className={isMuted ? 'muted' : ''}
+            title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </MuteButton>
+        </MuteControls>
       </Container>
     </>
   );
