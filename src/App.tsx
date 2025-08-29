@@ -78,7 +78,9 @@ const stoneAudio = preloadAudio('/sounds/stone.mp3');
 const winAudio = preloadAudio('/sounds/win.mp3');
 
 // Audio utility function for stone placement sounds using preloaded audio
-const playStoneSound = (player: Player) => {
+const playStoneSound = (player: Player, isMuted: boolean) => {
+  if (isMuted) return; // Skip audio if muted
+  
   try {
     // Using the same preloaded sound for both players
     const audio = stoneAudio;
@@ -97,7 +99,9 @@ const playStoneSound = (player: Player) => {
 };
 
 // Audio utility function for win sound
-const playWinSound = () => {
+const playWinSound = (isMuted: boolean) => {
+  if (isMuted) return; // Skip audio if muted
+  
   try {
     const audio = winAudio;
     audio.currentTime = 0;
@@ -341,6 +345,57 @@ const ZoomButton = styled.button`
   }
 `;
 
+const MuteControls = styled.div`
+  position: fixed;
+  bottom: 250px;
+  right: 88px;
+  transform: translateX(50%);
+  background: ${props => props.theme.cardBackground};
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  display: flex;
+  gap: 4px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
+`;
+
+const MuteButton = styled.button`
+  width: 40px;
+  height: 40px;
+  background: ${props => props.theme.cardBackground};
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  color: ${props => props.theme.text};
+  transition: all 0.15s ease;
+  
+  &:hover {
+    background: ${props => props.theme.buttonBackground};
+    color: ${props => props.theme.buttonText};
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  &.muted {
+    color: #e74c3c;
+    border-color: #e74c3c;
+    
+    &:hover {
+      background: rgba(231, 76, 60, 0.1);
+    }
+  }
+`;
+
 function getEmptyBoard3D(): BoardState3D {
   return Array.from({ length: BOARD_SIZE }, () =>
     Array.from({ length: BOARD_SIZE }, () =>
@@ -432,7 +487,7 @@ const ThemeToggle = styled.button`
   top: 20px;
   right: 20px;
   background: ${props => props.theme.cardBackground};
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 50px;
   padding: 12px 16px;
   cursor: pointer;
@@ -442,14 +497,14 @@ const ThemeToggle = styled.button`
   font-size: 14px;
   font-weight: 500;
   color: ${props => props.theme.text};
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   backdrop-filter: blur(10px);
   z-index: 1000;
   transition: all 0.3s ease;
   
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
   }
   
   &:active {
@@ -513,6 +568,7 @@ const App: React.FC = () => {
   const [hovered, setHovered] = useState<[number, number, number] | null>(null);
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
   const [ghostStone, setGhostStone] = useState<{ x: number; y: number; z: number; player: Player } | null>(null);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   // Camera sync state
   const boardCenter = (BOARD_SIZE - 1) * 0.5 / 2; // Board center coordinate
   const [cameraPos, setCameraPos] = useState<[number, number, number]>([10 + boardCenter, 10 + boardCenter, 18 + boardCenter]);
@@ -599,7 +655,7 @@ const App: React.FC = () => {
       // Second click - place the stone permanently
       
       // Play sound for stone placement
-      playStoneSound(currentPlayer);
+      playStoneSound(currentPlayer, isMuted);
       
       const newBoard = board.map(plane => plane.map(row => [...row]));
       newBoard[z][y][x] = currentPlayer;
@@ -617,7 +673,7 @@ const App: React.FC = () => {
       if (win) {
         setWinner(win);
         // Play win sound when someone wins
-        setTimeout(() => playWinSound(), 200); // Small delay after stone placement sound
+        setTimeout(() => playWinSound(isMuted), 200); // Small delay after stone placement sound
       } else {
         setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
       }
@@ -666,6 +722,10 @@ const App: React.FC = () => {
     setWinner(0);
     setMoveHistory([]); // Clear move history
     setGhostStone(null); // Clear ghost stone
+  };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
   };
 
   // ESC key event listener for undo
@@ -718,6 +778,15 @@ const App: React.FC = () => {
         <CameraZoomControls 
           onZoom={zoomCamera}
         />
+        <MuteControls>
+          <MuteButton 
+            onClick={toggleMute}
+            className={isMuted ? 'muted' : ''}
+            title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </MuteButton>
+        </MuteControls>
       </Container>
     </ThemeProvider>
   );
