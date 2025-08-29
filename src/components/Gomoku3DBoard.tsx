@@ -128,7 +128,7 @@ const GridLines3D: React.FC<{ gridColor: string }> = ({ gridColor }) => {
   return <>{lines}</>;
 };
 
-// Custom Camera Controller with unlimited rotation
+// Quaternion-based Camera Controller with continuous 360° rotation
 const CustomCameraController: React.FC<{
   target: [number, number, number];
   onCameraChange: (position: [number, number, number], target: [number, number, number]) => void;
@@ -137,22 +137,25 @@ const CustomCameraController: React.FC<{
   const [isRotating, setIsRotating] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   
-  // Use refs for smooth interpolation
-  const currentSpherical = useRef(new THREE.Spherical(15, Math.PI / 2, 0));
-  const targetSpherical = useRef(new THREE.Spherical(15, Math.PI / 2, 0));
-  const velocity = useRef({ theta: 0, phi: 0 });
+  // Pure quaternion rotation state - never reset, only accumulate
+  const accumulatedRotation = useRef(new THREE.Quaternion());
+  const targetRotation = useRef(new THREE.Quaternion());
+  const rotationVelocity = useRef(new THREE.Quaternion());
+  const radius = useRef(15); // Camera distance
+  
   const targetVector = new THREE.Vector3(...target);
+  const basePosition = new THREE.Vector3(0, 0, 1); // Base camera direction
 
   // Smooth interpolation parameters
   const dampingFactor = 0.08;
   const velocityDamping = 0.92;
+  const sensitivity = 0.01; // Keep exact same sensitivity
 
-  // Mouse event handlers with velocity-based smooth rotation
   const handleMouseDown = useCallback((event: MouseEvent) => {
     setIsRotating(true);
     setLastMousePos({ x: event.clientX, y: event.clientY });
     // Reset velocity when starting new drag
-    velocity.current = { theta: 0, phi: 0 };
+    rotationVelocity.current.set(0, 0, 0, 1);
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -161,23 +164,21 @@ const CustomCameraController: React.FC<{
     const deltaX = event.clientX - lastMousePos.x;
     const deltaY = event.clientY - lastMousePos.y;
 
-    // Update velocity for smooth movement
-    velocity.current.theta = -deltaX * 0.01;
-    velocity.current.phi = deltaY * 0.01;
-
-    // Update target spherical coordinates with no constraints
-    targetSpherical.current.theta += velocity.current.theta;
-    targetSpherical.current.phi += velocity.current.phi;
+    // Create rotation quaternions for X and Y axis rotations
+    const rotationX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deltaY * sensitivity);
+    const rotationY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX * sensitivity);
     
-    // Allow unlimited rotation - no phi clamping to prevent gimbal lock
-    // Normalize theta to prevent overflow but allow full rotation
-    targetSpherical.current.theta = targetSpherical.current.theta % (Math.PI * 2);
+    // Combine rotations - apply Y rotation first, then X rotation
+    const deltaRotation = new THREE.Quaternion().multiplyQuaternions(rotationY, rotationX);
     
-    // Keep radius within reasonable bounds
-    targetSpherical.current.radius = Math.max(2, Math.min(60, targetSpherical.current.radius));
+    // Accumulate rotation - never reset, only add to existing rotation
+    targetRotation.current.multiplyQuaternions(deltaRotation, targetRotation.current);
+    
+    // Store velocity for momentum
+    rotationVelocity.current.copy(deltaRotation);
 
     setLastMousePos({ x: event.clientX, y: event.clientY });
-  }, [isRotating, lastMousePos]);
+  }, [isRotating, lastMousePos, sensitivity]);
 
   const handleMouseUp = useCallback(() => {
     setIsRotating(false);
@@ -186,8 +187,8 @@ const CustomCameraController: React.FC<{
   const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
     const zoomDelta = event.deltaY * 0.01;
-    targetSpherical.current.radius += zoomDelta;
-    targetSpherical.current.radius = Math.max(2, Math.min(60, targetSpherical.current.radius));
+    radius.current += zoomDelta;
+    radius.current = Math.max(2, Math.min(60, radius.current));
   }, []);
 
   // Set up event listeners
@@ -210,38 +211,35 @@ const CustomCameraController: React.FC<{
   useFrame(() => {
     // Apply velocity damping when not actively rotating
     if (!isRotating) {
-      velocity.current.theta *= velocityDamping;
-      velocity.current.phi *= velocityDamping;
+      // Apply momentum with damping
+      const velocityMagnitude = 2 * Math.acos(Math.abs(rotationVelocity.current.w));
       
-      // Continue applying small velocity for momentum
-      if (Math.abs(velocity.current.theta) > 0.001 || Math.abs(velocity.current.phi) > 0.001) {
-        targetSpherical.current.theta += velocity.current.theta;
-        targetSpherical.current.phi += velocity.current.phi;
-        // Normalize theta to prevent overflow
-        targetSpherical.current.theta = targetSpherical.current.theta % (Math.PI * 2);
+      if (velocityMagnitude > 0.001) {
+        // Continue rotation with momentum - accumulate, never reset
+        targetRotation.current.multiplyQuaternions(rotationVelocity.current, targetRotation.current);
+        
+        // Dampen the velocity
+        rotationVelocity.current.slerp(new THREE.Quaternion(0, 0, 0, 1), 1 - velocityDamping);
       }
     }
 
-    // Smooth interpolation between current and target spherical coordinates
-    currentSpherical.current.theta += (targetSpherical.current.theta - currentSpherical.current.theta) * dampingFactor;
-    currentSpherical.current.phi += (targetSpherical.current.phi - currentSpherical.current.phi) * dampingFactor;
-    currentSpherical.current.radius += (targetSpherical.current.radius - currentSpherical.current.radius) * dampingFactor;
-
-    // Update camera position using manual spherical to cartesian conversion to avoid clamping
-    const radius = currentSpherical.current.radius;
-    const theta = currentSpherical.current.theta;
-    const phi = currentSpherical.current.phi;
+    // Smooth interpolation between current and target rotation using SLERP
+    accumulatedRotation.current.slerp(targetRotation.current, dampingFactor);
     
-    // Manual spherical to cartesian conversion (no automatic phi clamping)
-    const position = new THREE.Vector3(
-      radius * Math.sin(phi) * Math.sin(theta),
-      radius * Math.cos(phi),
-      radius * Math.sin(phi) * Math.cos(theta)
-    );
+    // Apply rotation to base position vector to get camera position
+    const position = basePosition.clone().multiplyScalar(radius.current);
+    position.applyQuaternion(accumulatedRotation.current);
     position.add(targetVector);
     
+    // Update camera position - NO lookAt call, maintain orientation
     camera.position.copy(position);
-    camera.lookAt(targetVector);
+    
+    // Calculate camera orientation from rotation quaternion
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(accumulatedRotation.current);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(accumulatedRotation.current);
+    
+    // Set camera orientation directly without lookAt
+    camera.quaternion.copy(accumulatedRotation.current);
     
     onCameraChange([position.x, position.y, position.z], target);
   });
