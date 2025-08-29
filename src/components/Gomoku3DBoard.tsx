@@ -20,6 +20,20 @@ interface Gomoku3DCubeBoardProps {
   cameraTarget: [number, number, number];
   onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void;
   ghostStone: { x: number; y: number; z: number; player: Player } | null;
+  theme: {
+    background: string;
+    text: string;
+    cardBackground: string;
+    buttonBackground: string;
+    buttonText: string;
+    buttonHover: string;
+    gridLines: string;
+    clickableDots: string;
+    hoverDots: string;
+    ambientLight: string;
+    directionalLight1: string;
+    directionalLight2: string;
+  };
 }
 
 const BOARD_SIZE = 8;
@@ -56,7 +70,7 @@ const stoneMaterialProps = (player: Player) => {
 };
 
 // Helper to render grid lines for a 3D cube
-const GridLines3D: React.FC = () => {
+const GridLines3D: React.FC<{ gridColor: string }> = ({ gridColor }) => {
   if (BOARD_SIZE < 2) return null;
   const lines = [];
   for (let i = 0; i < BOARD_SIZE; i++) {
@@ -75,7 +89,7 @@ const GridLines3D: React.FC = () => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#888" linewidth={1} transparent opacity={0.8} />
+            <lineBasicMaterial color={gridColor} linewidth={1} transparent opacity={0.8} />
           </line>
         );
         // Y lines
@@ -90,7 +104,7 @@ const GridLines3D: React.FC = () => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#888" linewidth={1} transparent opacity={0.8} />
+            <lineBasicMaterial color={gridColor} linewidth={1} transparent opacity={0.8} />
           </line>
         );
         // Z lines
@@ -105,7 +119,7 @@ const GridLines3D: React.FC = () => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#888" linewidth={1} transparent opacity={0.8} />
+            <lineBasicMaterial color={gridColor} linewidth={1} transparent opacity={0.8} />
           </line>
         );
       }
@@ -221,7 +235,7 @@ const CustomCameraController: React.FC<{
   return null;
 };
 
-export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone }) => {
+export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone, theme }) => {
 
   // Memoize the bumpMap so it's only generated once
   // const bumpMap = useMemo(() => {
@@ -235,10 +249,8 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
     <div style={{ width: '100vw', height: '80vh', margin: '0 auto', maxWidth: '100vw', maxHeight: '100vh' }}>
       <Canvas camera={{ position: cameraPos, fov: 50 }} style={{ width: '100%', height: '100%' }}>
         <CustomCameraController target={cameraTarget} onCameraChange={onCameraChange} />
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[10, 20, 20]} intensity={0.7} />
           {/* 3D Grid Lines */}
-          <GridLines3D />
+          <GridLines3D gridColor={theme.gridLines} />
           {/* Artistic Stones (no bump) */}
           {board.map((plane, z) =>
             plane.map((row, y) =>
@@ -313,16 +325,16 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
                   onPointerOut={() => setHovered(null)}
                 >
                   <sphereGeometry args={[0.02, 8, 8]} />
-                  <meshBasicMaterial color={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? "#ff0000" : "#888888"} />
+                  <meshBasicMaterial color={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? theme.hoverDots : theme.clickableDots} />
                 </mesh>
               ) : null
             )
           )
         )}
         {/* Enhanced rim and fill lights for beauty */}
-        <directionalLight position={[0, 20, 0]} intensity={0.7} color={'#ffe6b3'} />
-        <directionalLight position={[-20, 10, 20]} intensity={0.25} color={'#b3d1ff'} />
-        <ambientLight intensity={0.8} color={'#f5f6fa'} />
+        <directionalLight position={[0, 20, 0]} intensity={0.7} color={theme.directionalLight1} />
+        <directionalLight position={[-20, 10, 20]} intensity={0.25} color={theme.directionalLight2} />
+        <ambientLight intensity={0.8} color={theme.ambientLight} />
 
         {/* Overlay for winner */}
         {winner !== 0 && (

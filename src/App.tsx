@@ -1,10 +1,62 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import styled, { createGlobalStyle } from 'styled-components';
+import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard';
+
+// Extend styled-components DefaultTheme
+declare module 'styled-components' {
+  export interface DefaultTheme {
+    background: string;
+    text: string;
+    cardBackground: string;
+    buttonBackground: string;
+    buttonText: string;
+    buttonHover: string;
+    gridLines: string;
+    clickableDots: string;
+    hoverDots: string;
+    ambientLight: string;
+    directionalLight1: string;
+    directionalLight2: string;
+  }
+}
 
 
 const BOARD_SIZE = 8;
 const WIN_COUNT = 5;
+
+// Theme definitions
+export type Theme = 'light' | 'dark';
+
+export const themes = {
+  light: {
+    background: '#f5f6fa',
+    text: '#23242b',
+    cardBackground: 'rgba(255, 255, 255, 0.95)',
+    buttonBackground: '#222',
+    buttonText: '#fff',
+    buttonHover: '#444',
+    gridLines: '#888',
+    clickableDots: '#888888',
+    hoverDots: '#ff0000',
+    ambientLight: '#f5f6fa',
+    directionalLight1: '#ffe6b3',
+    directionalLight2: '#b3d1ff',
+  },
+  dark: {
+    background: '#2c2c2c',
+    text: '#e2e8f0',
+    cardBackground: 'rgba(55, 65, 81, 0.95)',
+    buttonBackground: '#4a5568',
+    buttonText: '#e2e8f0',
+    buttonHover: '#718096',
+    gridLines: '#666',
+    clickableDots: '#aaaaaa',
+    hoverDots: '#ff4444',
+    ambientLight: '#4a5568',
+    directionalLight1: '#ffd4a3',
+    directionalLight2: '#a3c4ff',
+  },
+};
 
 // Preload audio files for better performance
 const audioCache = new Map<string, HTMLAudioElement>();
@@ -62,7 +114,9 @@ const GlobalStyle = createGlobalStyle`
   body {
     margin: 0;
     font-family: 'Inter', 'Roboto', Arial, sans-serif;
-    background: #f5f6fa;
+    background: ${props => props.theme.background};
+    color: ${props => props.theme.text};
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 `;
 
@@ -80,16 +134,17 @@ const Title = styled.h1`
   font-family: 'Inter', Arial, sans-serif;
   font-size: 2.1rem;
   font-weight: 600;
-  color: #23242b;
+  color: ${props => props.theme.text};
   margin-bottom: 0.5rem;
   letter-spacing: 0.01em;
+  transition: color 0.3s ease;
 `;
 
 
 
 const Button = styled.button`
-  background: #222;
-  color: #fff;
+  background: ${props => props.theme.buttonBackground};
+  color: ${props => props.theme.buttonText};
   border: none;
   border-radius: 8px;
   padding: 0.7rem 1.5rem;
@@ -97,9 +152,9 @@ const Button = styled.button`
   font-weight: 600;
   margin-top: 1.5rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.3s ease, color 0.3s ease;
   &:hover {
-    background: #444;
+    background: ${props => props.theme.buttonHover};
   }
 `;
 
@@ -121,18 +176,19 @@ const TurnIndicator = styled.div`
   position: fixed;
   top: 20px;
   left: 20px;
-  background: rgba(255, 255, 255, 0.95);
+  background: ${props => props.theme.cardBackground};
   border-radius: 50px;
   padding: 12px 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   display: flex;
   align-items: center;
   gap: 16px;
   z-index: 1000;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.1);
   min-width: 180px;
   height: 70px;
+  transition: all 0.3s ease;
 `;
 
 const StonePreview = styled.div`
@@ -181,14 +237,8 @@ const TurnText = styled.div`
   font-size: 12px;
   letter-spacing: 0.02em;
   line-height: 1.2;
-  
-  &.black {
-    color: #23242b;
-  }
-  
-  &.white {
-    color: #444;
-  }
+  color: ${props => props.theme.text};
+  transition: color 0.3s ease;
 `;
 
 
@@ -197,16 +247,18 @@ const RotationControls = styled.div`
   position: fixed;
   bottom: 20px;
   right: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: ${props => props.theme.cardBackground};
   border-radius: 12px;
   padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 4px;
   z-index: 1000;
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
 `;
 
 const ZoomControls = styled.div`
@@ -214,22 +266,24 @@ const ZoomControls = styled.div`
   bottom: 170px;
   right: 88px;
   transform: translateX(50%);
-  background: rgba(255, 255, 255, 0.9);
+  background: ${props => props.theme.cardBackground};
   border-radius: 12px;
   padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   display: flex;
   gap: 4px;
   z-index: 1000;
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
 `;
 
 
 const RotationButton = styled.button`
   width: 40px;
   height: 40px;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: ${props => props.theme.cardBackground};
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -237,27 +291,26 @@ const RotationButton = styled.button`
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  color: #444;
+  color: ${props => props.theme.text};
   transition: all 0.15s ease;
   
   &:hover {
-    background: #f0f0f0;
-    border-color: #bbb;
+    background: ${props => props.theme.buttonBackground};
+    color: ${props => props.theme.buttonText};
     transform: translateY(-1px);
   }
   
   &:active {
     transform: translateY(0);
-    background: #e8e8e8;
   }
   
   &.center {
-    background: #23242b;
-    color: #fff;
-    border-color: #23242b;
+    background: ${props => props.theme.buttonBackground};
+    color: ${props => props.theme.buttonText};
+    border-color: ${props => props.theme.buttonBackground};
     
     &:hover {
-      background: #444;
+      background: ${props => props.theme.buttonHover};
     }
   }
 `;
@@ -265,8 +318,8 @@ const RotationButton = styled.button`
 const ZoomButton = styled.button`
   width: 40px;
   height: 40px;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: ${props => props.theme.cardBackground};
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -274,18 +327,17 @@ const ZoomButton = styled.button`
   cursor: pointer;
   font-size: 18px;
   font-weight: 600;
-  color: #444;
+  color: ${props => props.theme.text};
   transition: all 0.15s ease;
   
   &:hover {
-    background: #f0f0f0;
-    border-color: #bbb;
+    background: ${props => props.theme.buttonBackground};
+    color: ${props => props.theme.buttonText};
     transform: translateY(-1px);
   }
   
   &:active {
     transform: translateY(0);
-    background: #e8e8e8;
   }
 `;
 
@@ -374,13 +426,53 @@ const CameraZoomControls: React.FC<{ onZoom: (factor: number) => void }> = ({ on
   );
 };
 
+// Theme Toggle Button Component
+const ThemeToggle = styled.button`
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: ${props => props.theme.cardBackground};
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 50px;
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: ${props => props.theme.text};
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const ThemeToggleComponent: React.FC<{ theme: Theme; onToggle: () => void }> = ({ theme, onToggle }) => {
+  return (
+    <ThemeToggle onClick={onToggle}>
+      {theme === 'light' ? '🌙' : '☀️'}
+      {theme === 'light' ? 'Dark' : 'Light'}
+    </ThemeToggle>
+  );
+};
+
 // Visual turn indicator component
 const TurnIndicatorComponent: React.FC<{ currentPlayer: Player, winner: Player }> = ({ currentPlayer, winner }) => {
   if (winner !== 0) {
     return (
       <TurnIndicator>
         <StonePreview className={winner === 1 ? 'black' : 'white'} />
-        <TurnText className={winner === 1 ? 'black' : 'white'}>
+        <TurnText>
           {winner === 1 ? 'Black' : 'White'} Wins! 🎉
         </TurnText>
       </TurnIndicator>
@@ -390,7 +482,7 @@ const TurnIndicatorComponent: React.FC<{ currentPlayer: Player, winner: Player }
   return (
     <TurnIndicator>
       <StonePreview className={currentPlayer === 1 ? 'black' : 'white'} />
-      <TurnText className={currentPlayer === 1 ? 'black' : 'white'}>
+      <TurnText>
         {currentPlayer === 1 ? 'Black' : 'White'}'s Turn
       </TurnText>
     </TurnIndicator>
@@ -409,6 +501,12 @@ type Move = {
 };
 
 const App: React.FC = () => {
+  // Theme state with localStorage persistence
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem('gomoku-theme') as Theme;
+    return savedTheme && (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'light';
+  });
+
   const [board, setBoard] = useState<BoardState3D>(getEmptyBoard3D());
   const [currentPlayer, setCurrentPlayer] = useState<Player>(1);
   const [winner, setWinner] = useState<Player>(0);
@@ -419,6 +517,13 @@ const App: React.FC = () => {
   const boardCenter = (BOARD_SIZE - 1) * 0.5 / 2; // Board center coordinate
   const [cameraPos, setCameraPos] = useState<[number, number, number]>([10 + boardCenter, 10 + boardCenter, 18 + boardCenter]);
   const [cameraTarget, setCameraTarget] = useState<[number, number, number]>([boardCenter, boardCenter, boardCenter]);
+  // Theme toggle function
+  const toggleTheme = useCallback(() => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('gomoku-theme', newTheme);
+  }, [theme]);
+
   // Handler to update camera state from main board
   const handleCameraChange = useCallback((pos: [number, number, number], target: [number, number, number]) => {
     setCameraPos(pos);
@@ -580,10 +685,11 @@ const App: React.FC = () => {
 
 
   return (
-    <>
+    <ThemeProvider theme={themes[theme]}>
       <GlobalStyle />
       <Container>
         <Title>3D Gomoku Cube</Title>
+        <ThemeToggleComponent theme={theme} onToggle={toggleTheme} />
         <TurnIndicatorComponent currentPlayer={currentPlayer} winner={winner} />
         <Layout>
           <BoardWrapper>
@@ -599,6 +705,7 @@ const App: React.FC = () => {
               cameraTarget={cameraTarget}
               onCameraChange={handleCameraChange}
               ghostStone={ghostStone}
+              theme={themes[theme]}
             />
           </BoardWrapper>
         </Layout>
@@ -612,7 +719,7 @@ const App: React.FC = () => {
           onZoom={zoomCamera}
         />
       </Container>
-    </>
+    </ThemeProvider>
   );
 };
 
