@@ -52,9 +52,9 @@ export const themes = {
     gridLines: '#666',
     clickableDots: '#aaaaaa',
     hoverDots: '#ff4444',
-    ambientLight: '#4a5568',
-    directionalLight1: '#ffd4a3',
-    directionalLight2: '#a3c4ff',
+    ambientLight: '#f5f6fa',
+    directionalLight1: '#ffe6b3',
+    directionalLight2: '#b3d1ff',
   },
 };
 

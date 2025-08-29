@@ -165,9 +165,13 @@ const CustomCameraController: React.FC<{
     velocity.current.theta = -deltaX * 0.01;
     velocity.current.phi = deltaY * 0.01;
 
-    // Update target spherical coordinates
+    // Update target spherical coordinates with no constraints
     targetSpherical.current.theta += velocity.current.theta;
     targetSpherical.current.phi += velocity.current.phi;
+    
+    // Allow unlimited rotation - no phi clamping to prevent gimbal lock
+    // Normalize theta to prevent overflow but allow full rotation
+    targetSpherical.current.theta = targetSpherical.current.theta % (Math.PI * 2);
     
     // Keep radius within reasonable bounds
     targetSpherical.current.radius = Math.max(2, Math.min(60, targetSpherical.current.radius));
@@ -213,6 +217,8 @@ const CustomCameraController: React.FC<{
       if (Math.abs(velocity.current.theta) > 0.001 || Math.abs(velocity.current.phi) > 0.001) {
         targetSpherical.current.theta += velocity.current.theta;
         targetSpherical.current.phi += velocity.current.phi;
+        // Normalize theta to prevent overflow
+        targetSpherical.current.theta = targetSpherical.current.theta % (Math.PI * 2);
       }
     }
 
@@ -221,9 +227,17 @@ const CustomCameraController: React.FC<{
     currentSpherical.current.phi += (targetSpherical.current.phi - currentSpherical.current.phi) * dampingFactor;
     currentSpherical.current.radius += (targetSpherical.current.radius - currentSpherical.current.radius) * dampingFactor;
 
-    // Update camera position based on smoothed spherical coordinates
-    const position = new THREE.Vector3();
-    position.setFromSpherical(currentSpherical.current);
+    // Update camera position using manual spherical to cartesian conversion to avoid clamping
+    const radius = currentSpherical.current.radius;
+    const theta = currentSpherical.current.theta;
+    const phi = currentSpherical.current.phi;
+    
+    // Manual spherical to cartesian conversion (no automatic phi clamping)
+    const position = new THREE.Vector3(
+      radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.cos(theta)
+    );
     position.add(targetVector);
     
     camera.position.copy(position);
