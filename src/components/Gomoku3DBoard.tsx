@@ -169,7 +169,7 @@ const CustomCameraController: React.FC<{
     const deltaY = event.clientY - lastMousePos.y;
 
     // Update yaw and pitch velocities
-    yawVelocity.current = -deltaX * sensitivity;
+    yawVelocity.current = deltaX * sensitivity; // Fix yaw to match mouse direction
     pitchVelocity.current = -deltaY * sensitivity; // Invert pitch to match mouse direction
 
     // Accumulate yaw and pitch angles - no roll component
