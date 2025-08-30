@@ -396,55 +396,7 @@ const MuteButton = styled.button`
   }
 `;
 
-const MuteControls = styled.div`
-  position: fixed;
-  bottom: 250px;
-  right: 88px;
-  transform: translateX(50%);
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  display: flex;
-  gap: 4px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-`;
 
-const MuteButton = styled.button`
-  width: 40px;
-  height: 40px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  color: #444;
-  transition: all 0.15s ease;
-  
-  &:hover {
-    background: #f0f0f0;
-    border-color: #bbb;
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-    background: #e8e8e8;
-  }
-  
-  &.muted {
-    color: #e74c3c;
-    border-color: #e74c3c;
-    
-    &:hover {
-      background: #fdf2f2;
-    }
-  }
-`;
 
 function getEmptyBoard3D(): BoardState3D {
   return Array.from({ length: BOARD_SIZE }, () =>
