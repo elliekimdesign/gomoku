@@ -137,10 +137,13 @@ const CustomCameraController: React.FC<{
   const [isRotating, setIsRotating] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   
-  // Pure quaternion rotation state - never reset, only accumulate
-  const accumulatedRotation = useRef(new THREE.Quaternion());
-  const targetRotation = useRef(new THREE.Quaternion());
-  const rotationVelocity = useRef(new THREE.Quaternion());
+  // Roll-free rotation using yaw and pitch angles only
+  const yawAngle = useRef(0);
+  const pitchAngle = useRef(0);
+  const targetYaw = useRef(0);
+  const targetPitch = useRef(0);
+  const yawVelocity = useRef(0);
+  const pitchVelocity = useRef(0);
   const radius = useRef(15); // Camera distance
   
   const targetVector = new THREE.Vector3(...target);
@@ -155,7 +158,8 @@ const CustomCameraController: React.FC<{
     setIsRotating(true);
     setLastMousePos({ x: event.clientX, y: event.clientY });
     // Reset velocity when starting new drag
-    rotationVelocity.current.set(0, 0, 0, 1);
+    yawVelocity.current = 0;
+    pitchVelocity.current = 0;
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -164,18 +168,15 @@ const CustomCameraController: React.FC<{
     const deltaX = event.clientX - lastMousePos.x;
     const deltaY = event.clientY - lastMousePos.y;
 
-    // Create rotation quaternions for X and Y axis rotations
-    const rotationX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deltaY * sensitivity);
-    const rotationY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX * sensitivity);
+    // Update yaw and pitch velocities
+    yawVelocity.current = -deltaX * sensitivity;
+    pitchVelocity.current = deltaY * sensitivity;
+
+    // Accumulate yaw and pitch angles - no roll component
+    targetYaw.current += yawVelocity.current;
+    targetPitch.current += pitchVelocity.current;
     
-    // Combine rotations - apply Y rotation first, then X rotation
-    const deltaRotation = new THREE.Quaternion().multiplyQuaternions(rotationY, rotationX);
-    
-    // Accumulate rotation - never reset, only add to existing rotation
-    targetRotation.current.multiplyQuaternions(deltaRotation, targetRotation.current);
-    
-    // Store velocity for momentum
-    rotationVelocity.current.copy(deltaRotation);
+    // Allow over-the-top flips - no clamps on pitch
 
     setLastMousePos({ x: event.clientX, y: event.clientY });
   }, [isRotating, lastMousePos, sensitivity]);
@@ -212,34 +213,38 @@ const CustomCameraController: React.FC<{
     // Apply velocity damping when not actively rotating
     if (!isRotating) {
       // Apply momentum with damping
-      const velocityMagnitude = 2 * Math.acos(Math.abs(rotationVelocity.current.w));
-      
-      if (velocityMagnitude > 0.001) {
-        // Continue rotation with momentum - accumulate, never reset
-        targetRotation.current.multiplyQuaternions(rotationVelocity.current, targetRotation.current);
+      if (Math.abs(yawVelocity.current) > 0.001 || Math.abs(pitchVelocity.current) > 0.001) {
+        // Continue rotation with momentum
+        targetYaw.current += yawVelocity.current;
+        targetPitch.current += pitchVelocity.current;
         
-        // Dampen the velocity
-        rotationVelocity.current.slerp(new THREE.Quaternion(0, 0, 0, 1), 1 - velocityDamping);
+        // Dampen the velocities
+        yawVelocity.current *= velocityDamping;
+        pitchVelocity.current *= velocityDamping;
       }
     }
 
-    // Smooth interpolation between current and target rotation using SLERP
-    accumulatedRotation.current.slerp(targetRotation.current, dampingFactor);
+    // Smooth interpolation between current and target angles
+    yawAngle.current += (targetYaw.current - yawAngle.current) * dampingFactor;
+    pitchAngle.current += (targetPitch.current - pitchAngle.current) * dampingFactor;
+    
+    // Build quaternion from yaw and pitch only - no roll component
+    const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle.current);
+    const pitchQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchAngle.current);
+    
+    // Combine yaw and pitch - apply yaw first, then pitch
+    const cameraRotation = new THREE.Quaternion().multiplyQuaternions(yawQuaternion, pitchQuaternion);
     
     // Apply rotation to base position vector to get camera position
     const position = basePosition.clone().multiplyScalar(radius.current);
-    position.applyQuaternion(accumulatedRotation.current);
+    position.applyQuaternion(cameraRotation);
     position.add(targetVector);
     
-    // Update camera position - NO lookAt call, maintain orientation
+    // Update camera position
     camera.position.copy(position);
     
-    // Calculate camera orientation from rotation quaternion
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(accumulatedRotation.current);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(accumulatedRotation.current);
-    
-    // Set camera orientation directly without lookAt
-    camera.quaternion.copy(accumulatedRotation.current);
+    // Set camera orientation directly from rebuilt quaternion - no roll
+    camera.quaternion.copy(cameraRotation);
     
     onCameraChange([position.x, position.y, position.z], target);
   });
