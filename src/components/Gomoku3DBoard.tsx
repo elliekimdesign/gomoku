@@ -169,7 +169,7 @@ const CustomCameraController: React.FC<{
     const deltaY = event.clientY - lastMousePos.y;
 
     // Update yaw and pitch velocities
-    yawVelocity.current = deltaX * sensitivity; // Fix yaw to match mouse direction
+    yawVelocity.current = -deltaX * sensitivity; // Invert yaw to match mouse direction
     pitchVelocity.current = -deltaY * sensitivity; // Invert pitch to match mouse direction
 
     // Accumulate yaw and pitch angles - no roll component
@@ -187,9 +187,26 @@ const CustomCameraController: React.FC<{
 
   const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
-    const zoomDelta = event.deltaY * 0.01;
-    radius.current += zoomDelta;
-    radius.current = Math.max(2, Math.min(60, radius.current));
+    
+    // Normalize wheel delta for different devices (mouse wheel vs trackpad)
+    let zoomDelta = event.deltaY;
+    
+    // Handle different wheel modes
+    if (event.deltaMode === 1) {
+      // Line mode (Firefox)
+      zoomDelta *= 16;
+    } else if (event.deltaMode === 2) {
+      // Page mode
+      zoomDelta *= 100;
+    }
+    
+    // Apply zoom with better sensitivity
+    const zoomSpeed = 0.002;
+    const zoomAmount = zoomDelta * zoomSpeed * radius.current; // Scale with current distance
+    radius.current += zoomAmount;
+    
+    // More generous zoom limits
+    radius.current = Math.max(0.5, Math.min(100, radius.current));
   }, []);
 
   // Set up event listeners
