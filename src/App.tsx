@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard';
+import { GameSetup } from './components/GameSetup';
+import { isForbiddenMove, isLegalMove } from './utils/gameRules';
+import { GomokuAI } from './ai';
 
 // Extend styled-components DefaultTheme
 declare module 'styled-components' {
@@ -243,6 +246,15 @@ const TurnText = styled.div`
   line-height: 1.2;
   color: ${props => props.theme.text};
   transition: color 0.3s ease;
+  
+  &.thinking {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
 `;
 
 
@@ -524,23 +536,42 @@ const ThemeToggleComponent: React.FC<{ theme: Theme; onToggle: () => void }> = (
 };
 
 // Visual turn indicator component
-const TurnIndicatorComponent: React.FC<{ currentPlayer: Player, winner: Player }> = ({ currentPlayer, winner }) => {
+const TurnIndicatorComponent: React.FC<{ 
+  currentPlayer: Player, 
+  winner: Player, 
+  isAiThinking: boolean, 
+  humanPlayer: Player, 
+  aiPlayer: Player 
+}> = ({ currentPlayer, winner, isAiThinking, humanPlayer, aiPlayer }) => {
   if (winner !== 0) {
+    const isHumanWinner = winner === humanPlayer;
     return (
       <TurnIndicator>
         <StonePreview className={winner === 1 ? 'black' : 'white'} />
         <TurnText>
-          {winner === 1 ? 'Black' : 'White'} Wins! 🎉
+          {isHumanWinner ? 'You Win! 🎉' : 'AI Wins! 🤖'}
         </TurnText>
       </TurnIndicator>
     );
   }
 
+  if (isAiThinking) {
+    return (
+      <TurnIndicator>
+        <StonePreview className={aiPlayer === 1 ? 'black' : 'white'} />
+        <TurnText className="thinking">
+          AI is thinking... 🤔
+        </TurnText>
+      </TurnIndicator>
+    );
+  }
+
+  const isHumanTurn = currentPlayer === humanPlayer;
   return (
     <TurnIndicator>
       <StonePreview className={currentPlayer === 1 ? 'black' : 'white'} />
       <TurnText>
-        {currentPlayer === 1 ? 'Black' : 'White'}'s Turn
+        {isHumanTurn ? 'Your Turn' : 'AI Turn'}
       </TurnText>
     </TurnIndicator>
   );
@@ -557,12 +588,24 @@ type Move = {
   player: Player;
 };
 
+// Game mode type
+type GameMode = 'setup' | 'playing';
+
 const App: React.FC = () => {
   // Theme state with localStorage persistence
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('gomoku-theme') as Theme;
     return savedTheme && (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'light';
   });
+
+  // Game mode and player configuration
+  const [gameMode, setGameMode] = useState<GameMode>('setup');
+  const [humanPlayer, setHumanPlayer] = useState<Player>(1);
+  const [aiPlayer, setAiPlayer] = useState<Player>(2);
+  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
+  
+  // AI instance
+  const [ai] = useState(() => new GomokuAI('medium'));
 
   const [board, setBoard] = useState<BoardState3D>(getEmptyBoard3D());
   const [currentPlayer, setCurrentPlayer] = useState<Player>(1);
@@ -650,38 +693,104 @@ const App: React.FC = () => {
 
 
   const handlePlaceStone = (x: number, y: number, z: number) => {
-    if (board[z][y][x] !== 0 || winner) return;
+    if (board[z][y][x] !== 0 || winner || isAiThinking) return;
+    
+    // Only allow human player to make moves via UI
+    if (currentPlayer !== humanPlayer) {
+      console.log('Not human player turn');
+      return;
+    }
+    
+    // Check if this move is forbidden (six-in-a-row rule)
+    if (isForbiddenMove(board, x, y, z, currentPlayer)) {
+      console.log('Forbidden move: would create six-in-a-row');
+      return;
+    }
     
     // Check if there's already a ghost stone at this position
     if (ghostStone && ghostStone.x === x && ghostStone.y === y && ghostStone.z === z) {
       // Second click - place the stone permanently
-      
-      // Play sound for stone placement
-      playStoneSound(currentPlayer, isMuted);
-      
-      const newBoard = board.map(plane => plane.map(row => [...row]));
-      newBoard[z][y][x] = currentPlayer;
-      setBoard(newBoard);
-      
-      // Add move to history
-      const newMove: Move = { x, y, z, player: currentPlayer };
-      setMoveHistory(prev => [...prev, newMove]);
-      
-      // Clear ghost stone
-      setGhostStone(null);
-      
-      // Check for winner
-      const win = checkWinner3D(newBoard);
-      if (win) {
-        setWinner(win);
-        // Play win sound when someone wins
-        setTimeout(() => playWinSound(isMuted), 200); // Small delay after stone placement sound
-      } else {
-        setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
-      }
+      placeStoneOnBoard(x, y, z, currentPlayer);
     } else {
-      // First click - place ghost stone
-      setGhostStone({ x, y, z, player: currentPlayer });
+      // First click - place ghost stone (only if move is legal)
+      if (isLegalMove(board, x, y, z, currentPlayer)) {
+        setGhostStone({ x, y, z, player: currentPlayer });
+      } else {
+        console.log('Illegal move: position occupied or forbidden');
+      }
+    }
+  };
+
+  // Centralized stone placement logic (used by both human and AI)
+  const placeStoneOnBoard = (x: number, y: number, z: number, player: Player) => {
+    // Play sound for stone placement
+    playStoneSound(player, isMuted);
+    
+    const newBoard = board.map(plane => plane.map(row => [...row]));
+    newBoard[z][y][x] = player;
+    setBoard(newBoard);
+    
+    // Add move to history
+    const newMove: Move = { x, y, z, player };
+    setMoveHistory(prev => [...prev, newMove]);
+    
+    // Clear ghost stone if it was a human move
+    if (player === humanPlayer) {
+      setGhostStone(null);
+    }
+    
+    // Check for winner
+    const win = checkWinner3D(newBoard);
+    if (win) {
+      setWinner(win);
+      // Play win sound when someone wins
+      setTimeout(() => playWinSound(isMuted), 200); // Small delay after stone placement sound
+    } else {
+      // Switch to next player
+      const nextPlayer = player === 1 ? 2 : 1;
+      setCurrentPlayer(nextPlayer);
+      
+      // If next player is AI, trigger AI move after a short delay
+      if (nextPlayer === aiPlayer) {
+        setTimeout(() => {
+          makeAiMove(newBoard);
+        }, 100); // Small delay for smooth transition
+      }
+    }
+  };
+
+  // AI move execution using minimax algorithm
+  const makeAiMove = async (currentBoard: BoardState3D) => {
+    if (winner !== 0) return;
+    
+    setIsAiThinking(true);
+    
+    try {
+      // Get the best move from AI
+      const aiResult = await ai.getBestMove(currentBoard, aiPlayer);
+      
+      if (aiResult.move) {
+        console.log(`AI move: (${aiResult.move.x}, ${aiResult.move.y}, ${aiResult.move.z})`);
+        console.log(`Evaluation: ${aiResult.evaluation}, Confidence: ${aiResult.confidence}%`);
+        console.log(`Search depth: ${aiResult.searchDepth}, Nodes: ${aiResult.nodesEvaluated}`);
+        console.log(`Thinking time: ${aiResult.thinkingTime}ms`);
+        
+        // Ensure minimum 0.5 second thinking time for better UX
+        const minThinkingTime = 500;
+        const remainingTime = Math.max(0, minThinkingTime - aiResult.thinkingTime);
+        
+        setTimeout(() => {
+          placeStoneOnBoard(aiResult.move!.x, aiResult.move!.y, aiResult.move!.z, aiPlayer);
+          setIsAiThinking(false);
+        }, remainingTime);
+      } else {
+        // Fallback: no move found (shouldn't happen)
+        console.warn('AI could not find a move');
+        setIsAiThinking(false);
+      }
+    } catch (error) {
+      console.error('AI move error:', error);
+      setIsAiThinking(false);
     }
   };
 
@@ -718,12 +827,29 @@ const App: React.FC = () => {
   }, [board, winner, moveHistory, ghostStone]);
 
 
+  const handlePlayerSelection = (selectedHumanPlayer: Player) => {
+    setHumanPlayer(selectedHumanPlayer);
+    const selectedAiPlayer = selectedHumanPlayer === 1 ? 2 : 1;
+    setAiPlayer(selectedAiPlayer);
+    setCurrentPlayer(1); // Black always starts
+    setGameMode('playing');
+    
+    // If AI is black (goes first), make the first move
+    if (selectedAiPlayer === 1) {
+      setTimeout(() => {
+        makeAiMove(getEmptyBoard3D());
+      }, 500); // Small delay to let the UI settle
+    }
+  };
+
   const handleRestart = () => {
     setBoard(getEmptyBoard3D());
     setCurrentPlayer(1);
     setWinner(0);
     setMoveHistory([]); // Clear move history
     setGhostStone(null); // Clear ghost stone
+    setIsAiThinking(false);
+    setGameMode('setup'); // Go back to setup
   };
 
   const toggleMute = () => {
@@ -750,45 +876,62 @@ const App: React.FC = () => {
     <ThemeProvider theme={themes[theme]}>
       <GlobalStyle />
       <Container>
-        <Title>3D Gomoku Cube</Title>
         <ThemeToggleComponent theme={theme} onToggle={toggleTheme} />
-        <TurnIndicatorComponent currentPlayer={currentPlayer} winner={winner} />
-        <Layout>
-          <BoardWrapper>
-            <Gomoku3DBoard
-              board={board}
-              onPlaceStone={handlePlaceStone}
-              onUndo={handleUndo}
-              currentPlayer={currentPlayer}
-              winner={winner}
-              hovered={hovered}
-              setHovered={setHovered}
-              cameraPos={cameraPos}
-              cameraTarget={cameraTarget}
-              onCameraChange={handleCameraChange}
-              ghostStone={ghostStone}
-              theme={themes[theme]}
+        
+        {gameMode === 'setup' ? (
+          <GameSetup 
+            onPlayerSelection={handlePlayerSelection}
+            theme={themes[theme]}
+          />
+        ) : (
+          <>
+            <Title>3D Gomoku vs AI</Title>
+            <TurnIndicatorComponent 
+              currentPlayer={currentPlayer} 
+              winner={winner} 
+              isAiThinking={isAiThinking}
+              humanPlayer={humanPlayer}
+              aiPlayer={aiPlayer}
             />
-          </BoardWrapper>
-        </Layout>
-        <Button onClick={handleRestart} style={{ marginTop: 24 }}>
-          Restart Game
-        </Button>
-        <CameraRotationControls 
-          onRotate={rotateCameraAroundTarget}
-        />
-        <CameraZoomControls 
-          onZoom={zoomCamera}
-        />
-        <MuteControls>
-          <MuteButton 
-            onClick={toggleMute}
-            className={isMuted ? 'muted' : ''}
-            title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </MuteButton>
-        </MuteControls>
+            <Layout>
+              <BoardWrapper>
+                <Gomoku3DBoard
+                  board={board}
+                  onPlaceStone={handlePlaceStone}
+                  onUndo={handleUndo}
+                  currentPlayer={currentPlayer}
+                  winner={winner}
+                  hovered={hovered}
+                  setHovered={setHovered}
+                  cameraPos={cameraPos}
+                  cameraTarget={cameraTarget}
+                  onCameraChange={handleCameraChange}
+                  ghostStone={ghostStone}
+                  isAiThinking={isAiThinking}
+                  theme={themes[theme]}
+                />
+              </BoardWrapper>
+            </Layout>
+            <Button onClick={handleRestart} style={{ marginTop: 24 }}>
+              New Game
+            </Button>
+            <CameraRotationControls 
+              onRotate={rotateCameraAroundTarget}
+            />
+            <CameraZoomControls 
+              onZoom={zoomCamera}
+            />
+            <MuteControls>
+              <MuteButton 
+                onClick={toggleMute}
+                className={isMuted ? 'muted' : ''}
+                title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+              >
+                {isMuted ? '🔇' : '🔊'}
+              </MuteButton>
+            </MuteControls>
+          </>
+        )}
       </Container>
     </ThemeProvider>
   );

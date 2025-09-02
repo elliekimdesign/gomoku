@@ -20,6 +20,7 @@ interface Gomoku3DCubeBoardProps {
   cameraTarget: [number, number, number];
   onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void;
   ghostStone: { x: number; y: number; z: number; player: Player } | null;
+  isAiThinking?: boolean;
   theme: {
     background: string;
     text: string;
@@ -269,7 +270,7 @@ const CustomCameraController: React.FC<{
   return null;
 };
 
-export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone, theme }) => {
+export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone, isAiThinking = false, theme }) => {
 
   // Memoize the bumpMap so it's only generated once
   // const bumpMap = useMemo(() => {
@@ -347,7 +348,7 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
         )}
         
         {/* Clickable dots at every empty position */}
-        {board.map((plane, z) =>
+        {!isAiThinking && board.map((plane, z) =>
           plane.map((row, y) =>
             row.map((cell, x) =>
               cell === 0 && !winner && !(ghostStone && ghostStone.x === x && ghostStone.y === y && ghostStone.z === z) ? (
@@ -383,6 +384,34 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
               marginTop: 20,
             }}>
               {winner === 1 ? 'Black' : 'White'} wins!
+            </div>
+          </Html>
+        )}
+
+        {/* AI Thinking Overlay */}
+        {isAiThinking && (
+          <Html center style={{ pointerEvents: 'none' }}>
+            <div style={{
+              background: 'rgba(0,0,0,0.5)',
+              color: '#fff',
+              padding: '0.8rem 1.5rem',
+              borderRadius: 8,
+              fontSize: 16,
+              fontWeight: 500,
+              marginTop: -100,
+              animation: 'pulse 1.5s ease-in-out infinite',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <div style={{
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                background: '#4ade80',
+                animation: 'pulse 1s ease-in-out infinite'
+              }}></div>
+              AI is analyzing...
             </div>
           </Html>
         )}
