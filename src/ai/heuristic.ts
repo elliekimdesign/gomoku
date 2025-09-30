@@ -18,15 +18,15 @@ const DIRECTION_WEIGHTS = {
   [DirectionType.SPACE_DIAGONAL]: 1.2  // Hard for humans to detect - AI advantage
 };
 
-// Pattern scoring values
+// Pattern scoring values - 오목 룰에 맞게 조정
 const PATTERN_SCORES = {
   WIN: 1000000,           // Five in a row (game over)
-  FOUR_OPEN: 10000,       // Four in a row with open ends
-  FOUR_BLOCKED: 1000,     // Four in a row with one blocked end
-  THREE_OPEN: 500,        // Three in a row with open ends
-  THREE_BLOCKED: 50,      // Three in a row with one blocked end
-  TWO_OPEN: 50,           // Two in a row with open ends
-  TWO_BLOCKED: 5,         // Two in a row with one blocked end
+  FOUR_OPEN: 50000,       // Four in a row with open ends - 매우 위험!
+  FOUR_BLOCKED: 5000,     // Four in a row with one blocked end
+  THREE_OPEN: 2000,       // Three in a row with open ends - 위험!
+  THREE_BLOCKED: 200,     // Three in a row with one blocked end
+  TWO_OPEN: 100,          // Two in a row with open ends - 주의!
+  TWO_BLOCKED: 10,        // Two in a row with one blocked end
   ONE: 1                  // Single stone
 };
 
@@ -146,35 +146,109 @@ function evaluatePlayerPatterns(board: BoardState3D, player: Player): number {
   return totalScore;
 }
 
-// Check for immediate threats (opponent about to win)
-function evaluateThreats(board: BoardState3D, player: Player, opponent: Player): number {
-  let threatScore = 0;
+// 직접적인 위협 감지 - 상대방의 연속된 돌을 차단해야 하는 위치 찾기
+function findCriticalBlockingMoves(board: BoardState3D, opponent: Player): Array<{x: number, y: number, z: number, threat: number}> {
+  const criticalMoves: Array<{x: number, y: number, z: number, threat: number}> = [];
   
-  // Check all empty positions for potential opponent wins
+  // 모든 빈 위치 검사
   for (let z = 0; z < BOARD_SIZE; z++) {
     for (let y = 0; y < BOARD_SIZE; y++) {
       for (let x = 0; x < BOARD_SIZE; x++) {
         if (board[z][y][x] === 0) {
-          // Temporarily place opponent stone
-          board[z][y][x] = opponent;
+          let maxThreat = 0;
           
-          // Check if this creates a winning pattern
+          // 모든 방향에서 이 위치를 막지 않으면 상대방이 얼마나 연결되는지 확인
           for (const [dx, dy, dz] of directions) {
-            const consecutiveCount = countConsecutiveStones(board, x, y, z, dx, dy, dz, opponent) +
-                                   countConsecutiveStones(board, x - dx, y - dy, z - dz, -dx, -dy, -dz, opponent) - 1;
+            const consecutiveCount = countConsecutiveInDirection(board, x, y, z, dx, dy, dz, opponent);
             
-            if (consecutiveCount >= WIN_COUNT) {
+            if (consecutiveCount >= 2) { // 2개 이상 연결되면 위험
               const directionType = classifyDirection(dx, dy, dz);
-              threatScore -= PATTERN_SCORES.WIN * DIRECTION_WEIGHTS[directionType] * 0.9; // Slightly less than winning
-              break; // One threat per position is enough
-            } else if (consecutiveCount === 4) {
-              const directionType = classifyDirection(dx, dy, dz);
-              threatScore -= PATTERN_SCORES.FOUR_OPEN * DIRECTION_WEIGHTS[directionType] * 0.8;
+              const weight = DIRECTION_WEIGHTS[directionType];
+              const threat = consecutiveCount * 1000 * weight; // 연결 수에 비례한 위험도
+              maxThreat = Math.max(maxThreat, threat);
             }
           }
           
-          // Remove temporary stone
-          board[z][y][x] = 0;
+          if (maxThreat > 0) {
+            criticalMoves.push({x, y, z, threat: maxThreat});
+          }
+        }
+      }
+    }
+  }
+  
+  return criticalMoves.sort((a, b) => b.threat - a.threat); // 위험도 높은 순 정렬
+}
+
+// 특정 방향에서 연속된 돌 개수 세기 (양방향)
+function countConsecutiveInDirection(board: BoardState3D, x: number, y: number, z: number, dx: number, dy: number, dz: number, player: Player): number {
+  let count = 0;
+  
+  // 한쪽 방향
+  let checkX = x + dx, checkY = y + dy, checkZ = z + dz;
+  while (checkX >= 0 && checkX < BOARD_SIZE &&
+         checkY >= 0 && checkY < BOARD_SIZE &&
+         checkZ >= 0 && checkZ < BOARD_SIZE &&
+         board[checkZ][checkY][checkX] === player) {
+    count++;
+    checkX += dx;
+    checkY += dy;
+    checkZ += dz;
+  }
+  
+  // 반대 방향
+  checkX = x - dx;
+  checkY = y - dy;
+  checkZ = z - dz;
+  while (checkX >= 0 && checkX < BOARD_SIZE &&
+         checkY >= 0 && checkY < BOARD_SIZE &&
+         checkZ >= 0 && checkZ < BOARD_SIZE &&
+         board[checkZ][checkY][checkX] === player) {
+    count++;
+    checkX -= dx;
+    checkY -= dy;
+    checkZ -= dz;
+  }
+  
+  return count;
+}
+
+// 개선된 위협 평가 함수
+function evaluateThreats(board: BoardState3D, player: Player, opponent: Player): number {
+  let threatScore = 0;
+  
+  // 1. 즉시 차단해야 하는 중요한 위치들 찾기
+  const criticalMoves = findCriticalBlockingMoves(board, opponent);
+  
+  for (const move of criticalMoves) {
+    if (move.threat >= 4000) { // 4연속 이상 - 즉시 패배!
+      threatScore -= PATTERN_SCORES.WIN; // 최대 페널티
+    } else if (move.threat >= 3000) { // 3연속 - 매우 위험
+      threatScore -= PATTERN_SCORES.FOUR_OPEN; // 4목 수준의 위험
+    } else if (move.threat >= 2000) { // 2연속 - 주의
+      threatScore -= PATTERN_SCORES.THREE_OPEN;
+    }
+  }
+  
+  // 2. 기존 위협 평가도 유지 (추가 체크)
+  for (let z = 0; z < BOARD_SIZE; z++) {
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        if (board[z][y][x] === 0) {
+          // 상대방 돌을 임시로 놓았을 때 승리하는지 확인
+          board[z][y][x] = opponent;
+          
+          for (const [dx, dy, dz] of directions) {
+            const consecutiveCount = countConsecutiveInDirection(board, x, y, z, dx, dy, dz, opponent) + 1; // +1은 현재 놓은 돌
+            
+            if (consecutiveCount >= 5) {
+              threatScore -= PATTERN_SCORES.WIN; // 즉시 패배 방지
+            } else if (consecutiveCount >= 4) {
+              threatScore -= PATTERN_SCORES.FOUR_OPEN * 1.5; // 4목 방지
+            }
+          }
+          
+          board[z][y][x] = 0; // 원복
         }
       }
     }
@@ -211,26 +285,75 @@ function evaluatePositionalBonus(board: BoardState3D, player: Player): number {
 }
 
 /**
- * Main heuristic evaluation function
+ * 상대방 연결 차단 보너스 - 오목에서 중요한 방어 요소
+ */
+function evaluateBlockingBonus(board: BoardState3D, player: Player): number {
+  const opponent = player === 1 ? 2 : 1;
+  let blockingScore = 0;
+  
+  // 상대방의 연결된 돌 찾기
+  for (let z = 0; z < BOARD_SIZE; z++) {
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        if (board[z][y][x] === opponent) {
+          // 이 돌 주변의 빈 자리가 얼마나 중요한지 평가
+          for (const [dx, dy, dz] of directions) {
+            const nx = x + dx;
+            const ny = y + dy;
+            const nz = z + dz;
+            
+            if (isInBounds(nx, ny, nz) && board[nz][ny][nx] === 0) {
+              // 빈 자리에 AI가 돌을 놓으면 상대방의 연결을 얼마나 차단하는지 계산
+              board[nz][ny][nx] = player;
+              
+              // 상대방의 이 방향 연결이 차단되는 정도
+              const consecutiveOpponent = countConsecutiveStones(board, x, y, z, dx, dy, dz, opponent) +
+                                        countConsecutiveStones(board, x - dx, y - dy, z - dz, -dx, -dy, -dz, opponent) - 1;
+              
+              if (consecutiveOpponent >= 2) {
+                const directionType = classifyDirection(dx, dy, dz);
+                blockingScore += (consecutiveOpponent * 50) * DIRECTION_WEIGHTS[directionType];
+              }
+              
+              board[nz][ny][nx] = 0; // 원래대로 복구
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  return blockingScore;
+}
+
+/**
+ * Main heuristic evaluation function - 오목 룰에 최적화
  * Returns a score indicating how good the position is for the given player
  * Positive scores favor the player, negative scores favor the opponent
  */
 export function evaluatePosition(board: BoardState3D, player: Player): number {
   const opponent = player === 1 ? 2 : 1;
   
-  // Evaluate patterns for both players
+  // 1. 자신의 패턴 점수
   const playerScore = evaluatePlayerPatterns(board, player);
+  
+  // 2. 상대방의 패턴 점수 (차감)
   const opponentScore = evaluatePlayerPatterns(board, opponent);
   
-  // Evaluate threats (opponent about to win)
+  // 3. 위협 평가 (상대방이 이기기 직전인지)
   const threatScore = evaluateThreats(board, player, opponent);
   
-  // Positional bonuses
+  // 4. 방어 보너스 (상대방 연결 차단)
+  const blockingBonus = evaluateBlockingBonus(board, player);
+  
+  // 5. 위치 보너스 (중앙 선호)
   const playerPositionBonus = evaluatePositionalBonus(board, player);
   const opponentPositionBonus = evaluatePositionalBonus(board, opponent);
   
-  // Combine all factors
-  const totalScore = playerScore - opponentScore + threatScore + 
+  // 점수 조합 - 위협 차단을 최우선으로
+  const totalScore = playerScore - opponentScore * 1.1 + // 상대방 점수를 더 중요하게
+                    threatScore * 2.0 +                   // 위협은 매우 중요
+                    blockingBonus * 1.5 +                 // 방어도 중요
                     (playerPositionBonus - opponentPositionBonus) * 0.1;
   
   return Math.round(totalScore);

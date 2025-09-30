@@ -1,65 +1,81 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
+import './App.css';
 import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard';
 import { GameSetup } from './components/GameSetup';
 import { isForbiddenMove, isLegalMove } from './utils/gameRules';
 import { GomokuAI } from './ai';
 
-// Extend styled-components DefaultTheme
-declare module 'styled-components' {
-  export interface DefaultTheme {
-    background: string;
-    text: string;
-    cardBackground: string;
-    buttonBackground: string;
-    buttonText: string;
-    buttonHover: string;
-    gridLines: string;
-    clickableDots: string;
-    hoverDots: string;
-    ambientLight: string;
-    directionalLight1: string;
-    directionalLight2: string;
-  }
-}
-
 
 const BOARD_SIZE = 8;
+
+// 위협 분석 함수 (디버깅용)
+function analyzeCurrentThreats(board: BoardState3D, humanPlayer: Player): any {
+  const threats = [];
+  
+  // 모든 빈 위치에서 humanPlayer가 연결되는 경우 찾기
+  for (let z = 0; z < BOARD_SIZE; z++) {
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        if (board[z][y][x] === 0) {
+          // 26방향 검사
+          for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dz = -1; dz <= 1; dz++) {
+                if (dx === 0 && dy === 0 && dz === 0) continue;
+                
+                const consecutiveCount = countConsecutiveInDirection(board, x, y, z, dx, dy, dz, humanPlayer);
+                if (consecutiveCount >= 2) {
+                  threats.push({
+                    position: `(${x},${y},${z})`,
+                    direction: `(${dx},${dy},${dz})`,
+                    consecutiveCount,
+                    threat: consecutiveCount >= 3 ? '🚨 CRITICAL' : '⚠️ WARNING'
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  return threats.sort((a, b) => b.consecutiveCount - a.consecutiveCount);
+}
+
+// 방향별 연속 카운트 함수
+function countConsecutiveInDirection(board: BoardState3D, x: number, y: number, z: number, dx: number, dy: number, dz: number, player: Player): number {
+  let count = 0;
+  
+  // 한쪽 방향
+  let checkX = x + dx, checkY = y + dy, checkZ = z + dz;
+  while (checkX >= 0 && checkX < BOARD_SIZE &&
+         checkY >= 0 && checkY < BOARD_SIZE &&
+         checkZ >= 0 && checkZ < BOARD_SIZE &&
+         board[checkZ][checkY][checkX] === player) {
+    count++;
+    checkX += dx;
+    checkY += dy;
+    checkZ += dz;
+  }
+  
+  // 반대 방향
+  checkX = x - dx;
+  checkY = y - dy;
+  checkZ = z - dz;
+  while (checkX >= 0 && checkX < BOARD_SIZE &&
+         checkY >= 0 && checkY < BOARD_SIZE &&
+         checkZ >= 0 && checkZ < BOARD_SIZE &&
+         board[checkZ][checkY][checkX] === player) {
+    count++;
+    checkX -= dx;
+    checkY -= dy;
+    checkZ -= dz;
+  }
+  
+  return count;
+}
 const WIN_COUNT = 5;
-
-// Theme definitions
-export type Theme = 'light' | 'dark';
-
-export const themes = {
-  light: {
-    background: '#f5f6fa',
-    text: '#23242b',
-    cardBackground: 'rgba(255, 255, 255, 0.95)',
-    buttonBackground: '#222',
-    buttonText: '#fff',
-    buttonHover: '#444',
-    gridLines: '#888',
-    clickableDots: '#888888',
-    hoverDots: '#ff0000',
-    ambientLight: '#f5f6fa',
-    directionalLight1: '#ffe6b3',
-    directionalLight2: '#b3d1ff',
-  },
-  dark: {
-    background: '#2c2c2c',
-    text: '#e2e8f0',
-    cardBackground: 'rgba(55, 65, 81, 0.95)',
-    buttonBackground: '#4a5568',
-    buttonText: '#e2e8f0',
-    buttonHover: '#718096',
-    gridLines: '#666',
-    clickableDots: '#aaaaaa',
-    hoverDots: '#ff4444',
-    ambientLight: '#f5f6fa',
-    directionalLight1: '#ffe6b3',
-    directionalLight2: '#b3d1ff',
-  },
-};
 
 // Preload audio files for better performance
 const audioCache = new Map<string, HTMLAudioElement>();
@@ -117,296 +133,6 @@ const playWinSound = (isMuted: boolean) => {
 };
 
 
-const GlobalStyle = createGlobalStyle`
-  body {
-    margin: 0;
-    font-family: 'Inter', 'Roboto', Arial, sans-serif;
-    background: ${props => props.theme.background};
-    color: ${props => props.theme.text};
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
-`;
-
-const Container = styled.div`
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 2rem 0 1rem 0;
-  box-sizing: border-box;
-`;
-
-const Title = styled.h1`
-  font-family: 'Inter', Arial, sans-serif;
-  font-size: 2.1rem;
-  font-weight: 600;
-  color: ${props => props.theme.text};
-  margin-bottom: 0.5rem;
-  letter-spacing: 0.01em;
-  transition: color 0.3s ease;
-`;
-
-
-
-const Button = styled.button`
-  background: ${props => props.theme.buttonBackground};
-  color: ${props => props.theme.buttonText};
-  border: none;
-  border-radius: 8px;
-  padding: 0.7rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  margin-top: 1.5rem;
-  cursor: pointer;
-  transition: background 0.3s ease, color 0.3s ease;
-  &:hover {
-    background: ${props => props.theme.buttonHover};
-  }
-`;
-
-const Layout = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100vw;
-  max-width: 100vw;
-`;
-
-const BoardWrapper = styled.div`
-  flex: 1 1 0;
-  min-width: 0;
-`;
-
-const TurnIndicator = styled.div`
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  background: ${props => props.theme.cardBackground};
-  border-radius: 50px;
-  padding: 12px 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.1);
-  min-width: 180px;
-  height: 70px;
-  transition: all 0.3s ease;
-`;
-
-const StonePreview = styled.div`
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  flex-shrink: 0;
-  
-  &.black {
-    background: linear-gradient(135deg, #23242b 0%, #3a3a5a 100%);
-    box-shadow: 
-      0 4px 12px rgba(35, 36, 43, 0.5),
-      inset 0 2px 4px rgba(255, 255, 255, 0.15),
-      inset 0 -2px 4px rgba(0, 0, 0, 0.2);
-  }
-  
-  &.white {
-    background: linear-gradient(135deg, #ffffff 0%, #f7f6f2 100%);
-    box-shadow: 
-      0 4px 12px rgba(0, 0, 0, 0.2),
-      inset 0 2px 4px rgba(255, 255, 255, 0.8),
-      inset 0 -2px 4px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-  }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 15%;
-    left: 25%;
-    width: 35%;
-    height: 35%;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.4);
-    filter: blur(3px);
-  }
-`;
-
-const TurnText = styled.div`
-  font-family: 'Inter', Arial, sans-serif;
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  color: ${props => props.theme.text};
-  transition: color 0.3s ease;
-  
-  &.thinking {
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-`;
-
-
-
-const RotationControls = styled.div`
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: ${props => props.theme.cardBackground};
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 4px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.1);
-  transition: all 0.3s ease;
-`;
-
-const ZoomControls = styled.div`
-  position: fixed;
-  bottom: 170px;
-  right: 88px;
-  transform: translateX(50%);
-  background: ${props => props.theme.cardBackground};
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  display: flex;
-  gap: 4px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.1);
-  transition: all 0.3s ease;
-`;
-
-
-const RotationButton = styled.button`
-  width: 40px;
-  height: 40px;
-  background: ${props => props.theme.cardBackground};
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
-  color: ${props => props.theme.text};
-  transition: all 0.15s ease;
-  
-  &:hover {
-    background: ${props => props.theme.buttonBackground};
-    color: ${props => props.theme.buttonText};
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-  
-  &.center {
-    background: ${props => props.theme.buttonBackground};
-    color: ${props => props.theme.buttonText};
-    border-color: ${props => props.theme.buttonBackground};
-    
-    &:hover {
-      background: ${props => props.theme.buttonHover};
-    }
-  }
-`;
-
-const ZoomButton = styled.button`
-  width: 40px;
-  height: 40px;
-  background: ${props => props.theme.cardBackground};
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 18px;
-  font-weight: 600;
-  color: ${props => props.theme.text};
-  transition: all 0.15s ease;
-  
-  &:hover {
-    background: ${props => props.theme.buttonBackground};
-    color: ${props => props.theme.buttonText};
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const MuteControls = styled.div`
-  position: fixed;
-  bottom: 250px;
-  right: 88px;
-  transform: translateX(50%);
-  background: ${props => props.theme.cardBackground};
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  display: flex;
-  gap: 4px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.1);
-  transition: all 0.3s ease;
-`;
-
-const MuteButton = styled.button`
-  width: 40px;
-  height: 40px;
-  background: ${props => props.theme.cardBackground};
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  color: ${props => props.theme.text};
-  transition: all 0.15s ease;
-  
-  &:hover {
-    background: ${props => props.theme.buttonBackground};
-    color: ${props => props.theme.buttonText};
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-  
-  &.muted {
-    color: #e74c3c;
-    border-color: #e74c3c;
-    
-    &:hover {
-      background: rgba(231, 76, 60, 0.1);
-    }
-  }
-`;
 
 
 
@@ -466,72 +192,32 @@ const CameraRotationControls: React.FC<{ onRotate: (azimuth: number, polar: numb
   const ROTATION_STEP = Math.PI / 4; // 45 degrees - more responsive rotation
 
   return (
-    <RotationControls>
+    <div className="rotation-controls">
       {/* Row 1: Up-left, Up, Up-right */}
-      <RotationButton onClick={() => onRotate(-ROTATION_STEP, -ROTATION_STEP)}>↖</RotationButton>
-      <RotationButton onClick={() => onRotate(0, -ROTATION_STEP)}>↑</RotationButton>
-      <RotationButton onClick={() => onRotate(ROTATION_STEP, -ROTATION_STEP)}>↗</RotationButton>
+      <button className="rotation-button" onClick={() => onRotate(-ROTATION_STEP, -ROTATION_STEP)}>↖</button>
+      <button className="rotation-button" onClick={() => onRotate(0, -ROTATION_STEP)}>↑</button>
+      <button className="rotation-button" onClick={() => onRotate(ROTATION_STEP, -ROTATION_STEP)}>↗</button>
       
       {/* Row 2: Left, Empty, Right */}
-      <RotationButton onClick={() => onRotate(-ROTATION_STEP, 0)}>←</RotationButton>
+      <button className="rotation-button" onClick={() => onRotate(-ROTATION_STEP, 0)}>←</button>
       <div /> {/* Empty center space */}
-      <RotationButton onClick={() => onRotate(ROTATION_STEP, 0)}>→</RotationButton>
+      <button className="rotation-button" onClick={() => onRotate(ROTATION_STEP, 0)}>→</button>
       
       {/* Row 3: Down-left, Down, Down-right */}
-      <RotationButton onClick={() => onRotate(-ROTATION_STEP, ROTATION_STEP)}>↙</RotationButton>
-      <RotationButton onClick={() => onRotate(0, ROTATION_STEP)}>↓</RotationButton>
-      <RotationButton onClick={() => onRotate(ROTATION_STEP, ROTATION_STEP)}>↘</RotationButton>
-    </RotationControls>
+      <button className="rotation-button" onClick={() => onRotate(-ROTATION_STEP, ROTATION_STEP)}>↙</button>
+      <button className="rotation-button" onClick={() => onRotate(0, ROTATION_STEP)}>↓</button>
+      <button className="rotation-button" onClick={() => onRotate(ROTATION_STEP, ROTATION_STEP)}>↘</button>
+    </div>
   );
 };
 
 // Camera zoom controls component
 const CameraZoomControls: React.FC<{ onZoom: (factor: number) => void }> = ({ onZoom }) => {
   return (
-    <ZoomControls>
-      <ZoomButton onClick={() => onZoom(1.2)}>−</ZoomButton>
-      <ZoomButton onClick={() => onZoom(0.8)}>+</ZoomButton>
-    </ZoomControls>
-  );
-};
-
-// Theme Toggle Button Component
-const ThemeToggle = styled.button`
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: ${props => props.theme.cardBackground};
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 50px;
-  padding: 12px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: ${props => props.theme.text};
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const ThemeToggleComponent: React.FC<{ theme: Theme; onToggle: () => void }> = ({ theme, onToggle }) => {
-  return (
-    <ThemeToggle onClick={onToggle}>
-      {theme === 'light' ? '🌙' : '☀️'}
-      {theme === 'light' ? 'Dark' : 'Light'}
-    </ThemeToggle>
+    <div className="zoom-controls">
+      <button className="zoom-button" onClick={() => onZoom(1.2)}>−</button>
+      <button className="zoom-button" onClick={() => onZoom(0.8)}>+</button>
+    </div>
   );
 };
 
@@ -546,34 +232,24 @@ const TurnIndicatorComponent: React.FC<{
   if (winner !== 0) {
     const isHumanWinner = winner === humanPlayer;
     return (
-      <TurnIndicator>
-        <StonePreview className={winner === 1 ? 'black' : 'white'} />
-        <TurnText>
-          {isHumanWinner ? 'You Win! 🎉' : 'AI Wins! 🤖'}
-        </TurnText>
-      </TurnIndicator>
+      <div className="simple-title">
+        {isHumanWinner ? 'You Win! 🎉' : 'AI Wins! 🤖'}
+      </div>
     );
   }
 
   if (isAiThinking) {
     return (
-      <TurnIndicator>
-        <StonePreview className={aiPlayer === 1 ? 'black' : 'white'} />
-        <TurnText className="thinking">
-          AI is thinking... 🤔
-        </TurnText>
-      </TurnIndicator>
+      <div className="simple-title thinking">
+        AI is thinking... 🤔
+      </div>
     );
   }
 
-  const isHumanTurn = currentPlayer === humanPlayer;
   return (
-    <TurnIndicator>
-      <StonePreview className={currentPlayer === 1 ? 'black' : 'white'} />
-      <TurnText>
-        {isHumanTurn ? 'Your Turn' : 'AI Turn'}
-      </TurnText>
-    </TurnIndicator>
+    <div className="simple-title">
+      3D Gomoku
+    </div>
   );
 };
 
@@ -592,12 +268,6 @@ type Move = {
 type GameMode = 'setup' | 'playing';
 
 const App: React.FC = () => {
-  // Theme state with localStorage persistence
-  const [theme, setTheme] = useState<Theme>(() => {
-    const savedTheme = localStorage.getItem('gomoku-theme') as Theme;
-    return savedTheme && (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'light';
-  });
-
   // Game mode and player configuration
   const [gameMode, setGameMode] = useState<GameMode>('setup');
   const [humanPlayer, setHumanPlayer] = useState<Player>(1);
@@ -618,12 +288,6 @@ const App: React.FC = () => {
   const boardCenter = (BOARD_SIZE - 1) * 0.5 / 2; // Board center coordinate
   const [cameraPos, setCameraPos] = useState<[number, number, number]>([10 + boardCenter, 10 + boardCenter, 18 + boardCenter]);
   const [cameraTarget, setCameraTarget] = useState<[number, number, number]>([boardCenter, boardCenter, boardCenter]);
-  // Theme toggle function
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('gomoku-theme', newTheme);
-  }, [theme]);
 
   // Handler to update camera state from main board
   const handleCameraChange = useCallback((pos: [number, number, number], target: [number, number, number]) => {
@@ -693,36 +357,62 @@ const App: React.FC = () => {
 
 
   const handlePlaceStone = (x: number, y: number, z: number) => {
-    if (board[z][y][x] !== 0 || winner || isAiThinking) return;
+    console.log(`=== HUMAN MOVE ATTEMPT ===`);
+    console.log(`Position: (${x}, ${y}, ${z})`);
+    console.log(`Current turn: ${currentPlayer} (${currentPlayer === 1 ? 'Black' : 'White'})`);
+    console.log(`Human plays: ${humanPlayer} (${humanPlayer === 1 ? 'Black' : 'White'})`);
+    console.log(`AI plays: ${aiPlayer} (${aiPlayer === 1 ? 'Black' : 'White'})`);
+    console.log(`AI thinking: ${isAiThinking}`);
     
-    // Only allow human player to make moves via UI
+    // Block if position is occupied, game is over, or AI is thinking
+    if (board[z][y][x] !== 0 || winner || isAiThinking) {
+      console.log('❌ Move blocked:');
+      console.log('- Position occupied:', board[z][y][x] !== 0);
+      console.log('- Game has winner:', winner !== 0);
+      console.log('- AI thinking:', isAiThinking);
+      return;
+    }
+    
+    // Only allow human player to make moves via UI during their turn
     if (currentPlayer !== humanPlayer) {
-      console.log('Not human player turn');
+      console.log(`❌ Not human's turn! Current: ${currentPlayer}, Human: ${humanPlayer}`);
       return;
     }
     
     // Check if this move is forbidden (six-in-a-row rule)
     if (isForbiddenMove(board, x, y, z, currentPlayer)) {
-      console.log('Forbidden move: would create six-in-a-row');
+      console.log('❌ Forbidden move: would create six-in-a-row');
       return;
     }
     
     // Check if there's already a ghost stone at this position
     if (ghostStone && ghostStone.x === x && ghostStone.y === y && ghostStone.z === z) {
       // Second click - place the stone permanently
+      console.log('✅ Second click - confirming stone placement');
       placeStoneOnBoard(x, y, z, currentPlayer);
     } else {
       // First click - place ghost stone (only if move is legal)
       if (isLegalMove(board, x, y, z, currentPlayer)) {
+        console.log('👻 First click - placing ghost stone');
         setGhostStone({ x, y, z, player: currentPlayer });
       } else {
-        console.log('Illegal move: position occupied or forbidden');
+        console.log('❌ Illegal move: position occupied or forbidden');
       }
     }
   };
 
   // Centralized stone placement logic (used by both human and AI)
   const placeStoneOnBoard = (x: number, y: number, z: number, player: Player) => {
+    console.log(`=== PLACING STONE ===`);
+    console.log(`Player ${player} (${player === 1 ? 'Black' : 'White'}) placing at (${x}, ${y}, ${z})`);
+    console.log(`Current game state - Human: ${humanPlayer}, AI: ${aiPlayer}, Turn: ${currentPlayer}`);
+    
+    // Validate the move is for the correct player
+    if (player !== currentPlayer) {
+      console.error(`ERROR: Trying to place stone for player ${player} but current turn is ${currentPlayer}`);
+      return;
+    }
+    
     // Play sound for stone placement
     playStoneSound(player, isMuted);
     
@@ -743,56 +433,86 @@ const App: React.FC = () => {
     const win = checkWinner3D(newBoard);
     if (win) {
       setWinner(win);
+      console.log(`Game Over! Winner: Player ${win} (${win === 1 ? 'Black' : 'White'})`);
       // Play win sound when someone wins
-      setTimeout(() => playWinSound(isMuted), 200); // Small delay after stone placement sound
+      setTimeout(() => playWinSound(isMuted), 200);
     } else {
-      // Switch to next player
-      const nextPlayer = player === 1 ? 2 : 1;
+      // Switch to next player (alternate between 1 and 2)
+      const nextPlayer = currentPlayer === 1 ? 2 : 1;
+      console.log(`⏭️ Switching turn from ${currentPlayer} to ${nextPlayer}`);
       setCurrentPlayer(nextPlayer);
       
-      // If next player is AI, trigger AI move after a short delay
+      // Note: AI move will be triggered by useEffect when currentPlayer changes
       if (nextPlayer === aiPlayer) {
-        setTimeout(() => {
-          makeAiMove(newBoard);
-        }, 100); // Small delay for smooth transition
+        console.log(`Next turn is AI (${nextPlayer}) - useEffect will trigger AI move`);
+      } else {
+        console.log(`Next turn is Human (${nextPlayer}) - waiting for human input`);
       }
     }
   };
 
   // AI move execution using minimax algorithm
-  const makeAiMove = async (currentBoard: BoardState3D) => {
-    if (winner !== 0) return;
+  const makeAiMove = useCallback(async (currentBoard: BoardState3D) => {
+    console.log('=== MAKE AI MOVE ===');
+    console.log('AI player:', aiPlayer, 'Current player:', currentPlayer);
+    console.log('Winner:', winner, 'AI thinking:', isAiThinking);
     
+    if (winner !== 0) {
+      console.log('Game already has winner, canceling AI move');
+      return;
+    }
+    
+    if (isAiThinking) {
+      console.log('AI already thinking, skipping duplicate call');
+      return;
+    }
+
+    if (currentPlayer !== aiPlayer) {
+      console.log('Not AI turn, skipping');
+      return;
+    }
+    
+    console.log('🤖 AI starting to think...');
     setIsAiThinking(true);
+    
+    // 위협 분석 추가
+    const threats = analyzeCurrentThreats(currentBoard, humanPlayer);
+    console.log(`🎯 Detected ${threats.length} threats:`, threats.slice(0, 5)); // 상위 5개만 표시
     
     try {
       // Get the best move from AI
       const aiResult = await ai.getBestMove(currentBoard, aiPlayer);
       
       if (aiResult.move) {
-        console.log(`AI move: (${aiResult.move.x}, ${aiResult.move.y}, ${aiResult.move.z})`);
-        console.log(`Evaluation: ${aiResult.evaluation}, Confidence: ${aiResult.confidence}%`);
-        console.log(`Search depth: ${aiResult.searchDepth}, Nodes: ${aiResult.nodesEvaluated}`);
-        console.log(`Thinking time: ${aiResult.thinkingTime}ms`);
+        console.log(`🎯 AI chose move: (${aiResult.move.x}, ${aiResult.move.y}, ${aiResult.move.z})`);
+        console.log(`📊 Evaluation: ${aiResult.evaluation}, Confidence: ${aiResult.confidence}%`);
+        console.log(`🔍 Search depth: ${aiResult.searchDepth}, Nodes: ${aiResult.nodesEvaluated}`);
+        console.log(`⏱️ Thinking time: ${aiResult.thinkingTime}ms`);
         
         // Ensure minimum 0.5 second thinking time for better UX
         const minThinkingTime = 500;
         const remainingTime = Math.max(0, minThinkingTime - aiResult.thinkingTime);
         
         setTimeout(() => {
-          placeStoneOnBoard(aiResult.move!.x, aiResult.move!.y, aiResult.move!.z, aiPlayer);
+          console.log('🤖 AI placing stone after thinking delay');
+          // Double check the AI is still supposed to move
+          if (currentPlayer === aiPlayer && !winner) {
+            placeStoneOnBoard(aiResult.move!.x, aiResult.move!.y, aiResult.move!.z, aiPlayer);
+          } else {
+            console.error(`❌ State changed during AI thinking! Current: ${currentPlayer}, AI: ${aiPlayer}, Winner: ${winner}`);
+          }
           setIsAiThinking(false);
         }, remainingTime);
       } else {
         // Fallback: no move found (shouldn't happen)
-        console.warn('AI could not find a move');
+        console.warn('❌ AI could not find a move');
         setIsAiThinking(false);
       }
     } catch (error) {
-      console.error('AI move error:', error);
+      console.error('❌ AI move error:', error);
       setIsAiThinking(false);
     }
-  };
+  }, [aiPlayer, currentPlayer, winner, isAiThinking, ai]);
 
   // Undo functionality - removes ghost stone or chronologically latest stone
   const handleUndo = useCallback(() => {
@@ -828,17 +548,34 @@ const App: React.FC = () => {
 
 
   const handlePlayerSelection = (selectedHumanPlayer: Player) => {
-    setHumanPlayer(selectedHumanPlayer);
+    console.log('=== GAME SETUP ===');
+    console.log('Human selected:', selectedHumanPlayer === 1 ? 'Black (goes first)' : 'White (goes second)');
+    
     const selectedAiPlayer = selectedHumanPlayer === 1 ? 2 : 1;
+    
+    // Clear all game state first
+    setBoard(getEmptyBoard3D());
+    setWinner(0);
+    setMoveHistory([]);
+    setGhostStone(null);
+    setIsAiThinking(false);
+    
+    // Set up players
+    setHumanPlayer(selectedHumanPlayer);
     setAiPlayer(selectedAiPlayer);
-    setCurrentPlayer(1); // Black always starts
+    setCurrentPlayer(1); // Black (1) always starts in gomoku
     setGameMode('playing');
     
-    // If AI is black (goes first), make the first move
+    console.log('Setup complete:');
+    console.log('- Human plays as:', selectedHumanPlayer === 1 ? 'Black (1)' : 'White (2)');
+    console.log('- AI plays as:', selectedAiPlayer === 1 ? 'Black (1)' : 'White (2)');
+    console.log('- First turn: Black (1)');
+    
+    // Note: If AI plays Black (1), useEffect will trigger the first move
     if (selectedAiPlayer === 1) {
-      setTimeout(() => {
-        makeAiMove(getEmptyBoard3D());
-      }, 500); // Small delay to let the UI settle
+      console.log('AI plays Black (goes first) - useEffect will trigger opening move');
+    } else {
+      console.log('Human plays Black (goes first) - waiting for human move');
     }
   };
 
@@ -855,6 +592,28 @@ const App: React.FC = () => {
   const toggleMute = () => {
     setIsMuted(!isMuted);
   };
+
+  // AI turn detection - trigger AI move when it's AI's turn
+  useEffect(() => {
+    console.log(`=== TURN CHANGE EFFECT ===`);
+    console.log(`Current player: ${currentPlayer}, AI player: ${aiPlayer}, Human player: ${humanPlayer}`);
+    console.log(`Game mode: ${gameMode}, Winner: ${winner}, AI thinking: ${isAiThinking}`);
+    
+    // Only trigger AI move if:
+    // 1. Game is in playing mode
+    // 2. No winner yet  
+    // 3. It's AI's turn
+    // 4. AI is not already thinking
+    if (gameMode === 'playing' && winner === 0 && currentPlayer === aiPlayer && !isAiThinking) {
+      console.log(`🤖 AI turn detected! Triggering AI move for player ${aiPlayer}`);
+      
+      setTimeout(() => {
+      console.log(`🤖 Executing AI move with current board state`);
+      console.log(`🎯 Board analysis for threats:`, analyzeCurrentThreats(board, humanPlayer));
+      makeAiMove(board);
+      }, 200); // Small delay to ensure state is stable
+    }
+  }, [currentPlayer, aiPlayer, gameMode, winner, isAiThinking, board, makeAiMove]);
 
   // ESC key event listener for undo
   useEffect(() => {
@@ -873,19 +632,12 @@ const App: React.FC = () => {
 
 
   return (
-    <ThemeProvider theme={themes[theme]}>
-      <GlobalStyle />
-      <Container>
-        <ThemeToggleComponent theme={theme} onToggle={toggleTheme} />
-        
-        {gameMode === 'setup' ? (
-          <GameSetup 
-            onPlayerSelection={handlePlayerSelection}
-            theme={themes[theme]}
-          />
-        ) : (
-          <>
-            <Title>3D Gomoku vs AI</Title>
+    <div className="app-container">
+      {gameMode === 'setup' ? (
+        <GameSetup onPlayerSelection={handlePlayerSelection} />
+      ) : (
+        <>
+          <div className="title-header">
             <TurnIndicatorComponent 
               currentPlayer={currentPlayer} 
               winner={winner} 
@@ -893,47 +645,44 @@ const App: React.FC = () => {
               humanPlayer={humanPlayer}
               aiPlayer={aiPlayer}
             />
-            <Layout>
-              <BoardWrapper>
-                <Gomoku3DBoard
-                  board={board}
-                  onPlaceStone={handlePlaceStone}
-                  onUndo={handleUndo}
-                  currentPlayer={currentPlayer}
-                  winner={winner}
-                  hovered={hovered}
-                  setHovered={setHovered}
-                  cameraPos={cameraPos}
-                  cameraTarget={cameraTarget}
-                  onCameraChange={handleCameraChange}
-                  ghostStone={ghostStone}
-                  isAiThinking={isAiThinking}
-                  theme={themes[theme]}
-                />
-              </BoardWrapper>
-            </Layout>
-            <Button onClick={handleRestart} style={{ marginTop: 24 }}>
-              New Game
-            </Button>
-            <CameraRotationControls 
-              onRotate={rotateCameraAroundTarget}
-            />
-            <CameraZoomControls 
-              onZoom={zoomCamera}
-            />
-            <MuteControls>
-              <MuteButton 
-                onClick={toggleMute}
-                className={isMuted ? 'muted' : ''}
-                title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
-              >
-                {isMuted ? '🔇' : '🔊'}
-              </MuteButton>
-            </MuteControls>
-          </>
-        )}
-      </Container>
-    </ThemeProvider>
+            <div className="controls-vertical">
+              <button className="new-game-button" onClick={handleRestart}>
+                <span className="new-game-icon">⟲</span>
+                <span className="new-game-text">New Game</span>
+              </button>
+              
+              <div className="mute-controls-vertical">
+                <button 
+                  className={`control-button ${isMuted ? 'muted' : ''}`}
+                  onClick={toggleMute}
+                  title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+                >
+                  <span className="control-icon">{isMuted ? '🔇' : '🔊'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="app-layout">
+            <div className="board-wrapper">
+              <Gomoku3DBoard
+                board={board}
+                onPlaceStone={handlePlaceStone}
+                onUndo={handleUndo}
+                currentPlayer={currentPlayer}
+                winner={winner}
+                hovered={hovered}
+                setHovered={setHovered}
+                cameraPos={cameraPos}
+                cameraTarget={cameraTarget}
+                onCameraChange={handleCameraChange}
+                ghostStone={ghostStone}
+                isAiThinking={isAiThinking}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

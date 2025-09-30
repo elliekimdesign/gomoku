@@ -1,7 +1,7 @@
 import { BoardState3D, Player } from '../components/Gomoku3DBoard';
 import { MinimaxAI, MinimaxResult } from './minimax';
 import { evaluatePosition } from './heuristic';
-import { generateOrderedMoves } from './moveGeneration';
+import { generateOrderedMoves, Move } from './moveGeneration';
 
 export interface AIMove {
   x: number;
@@ -40,6 +40,36 @@ export class GomokuAI {
   async getBestMove(board: BoardState3D, aiPlayer: Player): Promise<AIResult> {
     const startTime = Date.now();
 
+    // 1. 즉시 이기는 수가 있는지 확인
+    const winningMove = this.findWinningMove(board, aiPlayer);
+    if (winningMove) {
+      console.log('🎯 AI found winning move!', winningMove);
+      return {
+        move: winningMove,
+        confidence: 100,
+        evaluation: 1000000,
+        searchDepth: 1,
+        nodesEvaluated: 1,
+        thinkingTime: Date.now() - startTime
+      };
+    }
+    
+    // 2. 즉시 막아야 하는 수가 있는지 확인  
+    const opponent = aiPlayer === 1 ? 2 : 1;
+    const blockingMove = this.findWinningMove(board, opponent);
+    if (blockingMove) {
+      console.log('🚨 AI found critical blocking move!', blockingMove);
+      return {
+        move: blockingMove,
+        confidence: 95,
+        evaluation: -900000,
+        searchDepth: 1,
+        nodesEvaluated: 1,
+        thinkingTime: Date.now() - startTime
+      };
+    }
+
+    // 3. 일반적인 Minimax 검색
     // Determine search parameters based on difficulty
     const { maxDepth, timeLimit } = this.getDifficultySettings();
 
@@ -68,6 +98,93 @@ export class GomokuAI {
       nodesEvaluated: result.nodesEvaluated,
       thinkingTime
     };
+  }
+
+  /**
+   * 즉시 이기는 수 찾기 (5목 만들기)
+   * @param board Current board state
+   * @param player Player to check for winning moves
+   * @returns Winning move if found, null otherwise
+   */
+  private findWinningMove(board: BoardState3D, player: Player): Move | null {
+    const BOARD_SIZE = 8;
+    
+    // 모든 빈 위치 확인
+    for (let z = 0; z < BOARD_SIZE; z++) {
+      for (let y = 0; y < BOARD_SIZE; y++) {
+        for (let x = 0; x < BOARD_SIZE; x++) {
+          if (board[z][y][x] === 0) {
+            // 이 위치에 돌을 놓았을 때 5목이 되는지 확인
+            if (this.wouldWin(board, x, y, z, player)) {
+              return { x, y, z };
+            }
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * 특정 위치에 돌을 놓았을 때 승리하는지 확인
+   * @param board Current board state
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @param z Z coordinate
+   * @param player Player to check
+   * @returns true if this move would win the game
+   */
+  private wouldWin(board: BoardState3D, x: number, y: number, z: number, player: Player): boolean {
+    const BOARD_SIZE = 8;
+    const WIN_COUNT = 5;
+    
+    // 26개 방향 확인
+    const directions = [
+      [1, 0, 0], [0, 1, 0], [0, 0, 1],
+      [-1, 0, 0], [0, -1, 0], [0, 0, -1],
+      [1, 1, 0], [1, -1, 0], [-1, 1, 0], [-1, -1, 0],
+      [1, 0, 1], [1, 0, -1], [-1, 0, 1], [-1, 0, -1],
+      [0, 1, 1], [0, 1, -1], [0, -1, 1], [0, -1, -1],
+      [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
+      [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1],
+    ];
+    
+    for (const [dx, dy, dz] of directions) {
+      let count = 1; // 현재 놓을 돌 포함
+      
+      // 한쪽 방향으로 세기
+      let checkX = x + dx, checkY = y + dy, checkZ = z + dz;
+      while (checkX >= 0 && checkX < BOARD_SIZE &&
+             checkY >= 0 && checkY < BOARD_SIZE &&
+             checkZ >= 0 && checkZ < BOARD_SIZE &&
+             board[checkZ][checkY][checkX] === player) {
+        count++;
+        checkX += dx;
+        checkY += dy;
+        checkZ += dz;
+      }
+      
+      // 반대 방향으로 세기
+      checkX = x - dx;
+      checkY = y - dy;
+      checkZ = z - dz;
+      while (checkX >= 0 && checkX < BOARD_SIZE &&
+             checkY >= 0 && checkY < BOARD_SIZE &&
+             checkZ >= 0 && checkZ < BOARD_SIZE &&
+             board[checkZ][checkY][checkX] === player) {
+        count++;
+        checkX -= dx;
+        checkY -= dy;
+        checkZ -= dz;
+      }
+      
+      if (count >= WIN_COUNT) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   /**

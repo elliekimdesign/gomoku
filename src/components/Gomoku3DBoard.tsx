@@ -21,64 +21,60 @@ interface Gomoku3DCubeBoardProps {
   onCameraChange: (pos: [number, number, number], target: [number, number, number]) => void;
   ghostStone: { x: number; y: number; z: number; player: Player } | null;
   isAiThinking?: boolean;
-  theme: {
-    background: string;
-    text: string;
-    cardBackground: string;
-    buttonBackground: string;
-    buttonText: string;
-    buttonHover: string;
-    gridLines: string;
-    clickableDots: string;
-    hoverDots: string;
-    ambientLight: string;
-    directionalLight1: string;
-    directionalLight2: string;
-  };
 }
 
 const BOARD_SIZE = 8;
 const CELL_SIZE = 0.5;
 const BOARD_LENGTH = (BOARD_SIZE - 1) * CELL_SIZE;
 
-// Artistic stone material properties
+// Modern stone material properties with sensible colors
 const stoneMaterialProps = (player: Player) => {
   if (player === 1) {
+    // Deep black with subtle blue highlights - classic and elegant
     return {
-      color: '#23242b',
-      roughness: 0.22,
-      metalness: 0.55,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.13,
-      sheen: 1,
-      sheenColor: '#3a3a5a',
-      transmission: 0.07,
+      color: '#1F2937',
+      roughness: 0.15,
+      metalness: 0.8,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.1,
+      sheen: 2.0,
+      sheenColor: '#374151',
+      transmission: 0.1,
+      emissive: '#111827',
+      emissiveIntensity: 0.3,
     };
   }
   if (player === 2) {
+    // Pure white with subtle pearl finish - clean and modern
     return {
-      color: '#f7f6f2',
-      roughness: 0.15,
-      metalness: 0.38,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.09,
-      sheen: 1,
-      sheenColor: '#fffbe6',
-      transmission: 0.09,
+      color: '#F8FAFC',
+      roughness: 0.12,
+      metalness: 0.6,
+      clearcoat: 0.95,
+      clearcoatRoughness: 0.08,
+      sheen: 2.5,
+      sheenColor: '#E2E8F0',
+      transmission: 0.15,
+      emissive: '#F1F5F9',
+      emissiveIntensity: 0.4,
     };
   }
   return { color: 'transparent', opacity: 0 };
 };
 
-// Helper to render grid lines for a 3D cube
-const GridLines3D: React.FC<{ gridColor: string }> = ({ gridColor }) => {
+// Helper to render grid lines for a 3D cube - 팝 스타일!
+const GridLines3D: React.FC = () => {
+  const gridColor = '#FF6B35'; // 밝은 오렌지 - 팝 느낌!
+  const frameColor = '#FF6B35'; // 그리드와 동일한 오렌지 색상으로 통일!
   if (BOARD_SIZE < 2) return null;
   const lines = [];
+  
+  // Interior grid lines
   for (let i = 0; i < BOARD_SIZE; i++) {
     for (let j = 0; j < BOARD_SIZE; j++) {
       // Defensive: only push lines if coordinates are finite
       if (isFinite(i) && isFinite(j)) {
-        // X lines
+        // X lines (interior)
         lines.push(
           <line key={`x-${i}-${j}`}>
             <bufferGeometry>
@@ -90,10 +86,10 @@ const GridLines3D: React.FC<{ gridColor: string }> = ({ gridColor }) => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color={gridColor} linewidth={1} transparent opacity={0.8} />
+            <lineBasicMaterial color={gridColor} linewidth={2} transparent opacity={0.6} />
           </line>
         );
-        // Y lines
+        // Y lines (interior)
         lines.push(
           <line key={`y-${i}-${j}`}>
             <bufferGeometry>
@@ -105,10 +101,10 @@ const GridLines3D: React.FC<{ gridColor: string }> = ({ gridColor }) => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color={gridColor} linewidth={1} transparent opacity={0.8} />
+            <lineBasicMaterial color={gridColor} linewidth={2} transparent opacity={0.6} />
           </line>
         );
-        // Z lines
+        // Z lines (interior)
         lines.push(
           <line key={`z-${i}-${j}`}>
             <bufferGeometry>
@@ -120,12 +116,49 @@ const GridLines3D: React.FC<{ gridColor: string }> = ({ gridColor }) => {
                 ]), 3]}
               />
             </bufferGeometry>
-            <lineBasicMaterial color={gridColor} linewidth={1} transparent opacity={0.8} />
+            <lineBasicMaterial color={gridColor} linewidth={2} transparent opacity={0.6} />
           </line>
         );
       }
     }
   }
+  
+  // Cube frame edges (more prominent)
+  const cubeEdges = [
+    // Bottom face edges
+    [[0, 0, 0], [BOARD_LENGTH, 0, 0]],
+    [[0, 0, 0], [0, BOARD_LENGTH, 0]],
+    [[0, 0, 0], [0, 0, BOARD_LENGTH]],
+    [[BOARD_LENGTH, 0, 0], [BOARD_LENGTH, BOARD_LENGTH, 0]],
+    [[BOARD_LENGTH, 0, 0], [BOARD_LENGTH, 0, BOARD_LENGTH]],
+    [[0, BOARD_LENGTH, 0], [BOARD_LENGTH, BOARD_LENGTH, 0]],
+    [[0, BOARD_LENGTH, 0], [0, BOARD_LENGTH, BOARD_LENGTH]],
+    [[0, 0, BOARD_LENGTH], [BOARD_LENGTH, 0, BOARD_LENGTH]],
+    [[0, 0, BOARD_LENGTH], [0, BOARD_LENGTH, BOARD_LENGTH]],
+    // Top face edges
+    [[BOARD_LENGTH, BOARD_LENGTH, 0], [BOARD_LENGTH, BOARD_LENGTH, BOARD_LENGTH]],
+    [[BOARD_LENGTH, 0, BOARD_LENGTH], [BOARD_LENGTH, BOARD_LENGTH, BOARD_LENGTH]],
+    [[0, BOARD_LENGTH, BOARD_LENGTH], [BOARD_LENGTH, BOARD_LENGTH, BOARD_LENGTH]],
+  ];
+  
+  cubeEdges.forEach((edge, index) => {
+    const [start, end] = edge;
+    lines.push(
+      <line key={`frame-${index}`}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[new Float32Array([
+              start[0], start[1], start[2],
+              end[0], end[1], end[2],
+            ]), 3]}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial color={frameColor} linewidth={3} transparent opacity={0.9} />
+      </line>
+    );
+  });
+  
   return <>{lines}</>;
 };
 
@@ -270,7 +303,7 @@ const CustomCameraController: React.FC<{
   return null;
 };
 
-export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone, isAiThinking = false, theme }) => {
+export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlaceStone, onUndo, currentPlayer, winner, hovered, setHovered, cameraPos, cameraTarget, onCameraChange, ghostStone, isAiThinking = false }) => {
 
   // Memoize the bumpMap so it's only generated once
   // const bumpMap = useMemo(() => {
@@ -281,11 +314,11 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
   // }, []);
 
   return (
-    <div style={{ width: '100vw', height: '80vh', margin: '0 auto', maxWidth: '100vw', maxHeight: '100vh' }}>
+    <div style={{ width: '100vw', height: '100vh', margin: '0 auto', maxWidth: '100vw', maxHeight: '100vh', paddingTop: '0' }}>
       <Canvas camera={{ position: cameraPos, fov: 50 }} style={{ width: '100%', height: '100%' }}>
         <CustomCameraController target={cameraTarget} onCameraChange={onCameraChange} />
           {/* 3D Grid Lines */}
-          <GridLines3D gridColor={theme.gridLines} />
+          <GridLines3D />
           {/* Artistic Stones (no bump) */}
           {board.map((plane, z) =>
             plane.map((row, y) =>
@@ -347,7 +380,7 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
           </mesh>
         )}
         
-        {/* Clickable dots at every empty position */}
+        {/* Enhanced clickable dots at every empty position */}
         {!isAiThinking && board.map((plane, z) =>
           plane.map((row, y) =>
             row.map((cell, x) =>
@@ -359,17 +392,27 @@ export const Gomoku3DBoard: React.FC<Gomoku3DCubeBoardProps> = ({ board, onPlace
                   onPointerOver={() => setHovered([x, y, z])}
                   onPointerOut={() => setHovered(null)}
                 >
-                  <sphereGeometry args={[0.02, 8, 8]} />
-                  <meshBasicMaterial color={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? theme.hoverDots : theme.clickableDots} />
+                  <sphereGeometry args={[0.025, 8, 8]} />
+                  <meshStandardMaterial 
+                    color={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? '#64748B' : '#475569'} 
+                    emissive={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? '#374151' : '#1F2937'}
+                    emissiveIntensity={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? 0.2 : 0.05}
+                    transparent 
+                    opacity={hovered && hovered[0] === x && hovered[1] === y && hovered[2] === z ? 0.8 : 0.5}
+                  />
                 </mesh>
               ) : null
             )
           )
         )}
-        {/* Enhanced rim and fill lights for beauty */}
-        <directionalLight position={[0, 20, 0]} intensity={0.7} color={theme.directionalLight1} />
-        <directionalLight position={[-20, 10, 20]} intensity={0.25} color={theme.directionalLight2} />
-        <ambientLight intensity={0.8} color={theme.ambientLight} />
+        {/* 팝 스타일 컬러풀 조명! */}
+        <directionalLight position={[10, 15, 10]} intensity={0.8} color="#FF69B4" castShadow />
+        <directionalLight position={[-10, 10, 15]} intensity={0.6} color="#00BFFF" />
+        <directionalLight position={[0, -10, 5]} intensity={0.5} color="#FFD700" />
+        <ambientLight intensity={0.7} color="#E6E6FA" />
+        <pointLight position={[0, 0, 0]} intensity={0.6} color="#FF1493" />
+        <pointLight position={[BOARD_LENGTH, BOARD_LENGTH, BOARD_LENGTH]} intensity={0.5} color="#32FF32" />
+        <pointLight position={[BOARD_LENGTH/2, BOARD_LENGTH/2, BOARD_LENGTH/2]} intensity={0.4} color="#FF6347" />
 
         {/* Overlay for winner */}
         {winner !== 0 && (

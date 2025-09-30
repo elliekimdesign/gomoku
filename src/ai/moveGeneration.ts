@@ -35,7 +35,7 @@ export function generateAllMoves(board: BoardState3D, player: Player): Move[] {
 
 /**
  * Generate moves with intelligent ordering for alpha-beta pruning efficiency
- * Prioritizes moves that are more likely to be good
+ * 오목 룰에 맞게 방어적 움직임을 우선적으로 고려
  * @param board Current board state
  * @param player Player to generate moves for
  * @param maxMoves Maximum number of moves to return (for pruning in deep searches)
@@ -47,24 +47,174 @@ export function generateOrderedMoves(
   maxMoves: number = 64
 ): Move[] {
   const allMoves = generateAllMoves(board, player);
+  const opponent = player === 1 ? 2 : 1;
   
-  // If early game (few stones), consider all moves
+  // If early game (few stones), consider all moves but still prioritize defensive
   const stoneCount = countStones(board);
   if (stoneCount <= 4) {
-    return orderMovesByStrategy(board, allMoves, player);
+    return orderMovesByGomokuStrategy(board, allMoves, player);
   }
   
-  // For mid/late game, use more sophisticated ordering
-  const scoredMoves = allMoves.map(move => ({
-    ...move,
-    score: quickEvaluateMove(board, move.x, move.y, move.z, player)
-  }));
+  // For mid/late game, use sophisticated ordering with defensive priority
+  const scoredMoves = allMoves.map(move => {
+    let score = quickEvaluateMove(board, move.x, move.y, move.z, player);
+    
+    // 1. 즉시 차단 보너스: 상대방의 연결을 차단하는 위치
+    const blockingScore = getCriticalBlockingScore(board, move.x, move.y, move.z, opponent);
+    score += blockingScore;
+    
+    // 2. 방어 보너스: 상대방 돌 근처에 두는 것을 높게 평가
+    const defenseBonus = getDefenseBonus(board, move.x, move.y, move.z, opponent);
+    score += defenseBonus;
+    
+    return {
+      ...move,
+      score
+    };
+  });
   
   // Sort by score (highest first)
   scoredMoves.sort((a, b) => (b.score || 0) - (a.score || 0));
   
   // Return top moves
   return scoredMoves.slice(0, maxMoves);
+}
+
+/**
+ * 즉시 차단 점수 계산 - 상대방의 연결을 직접 차단하는 위치 최우선
+ */
+function getCriticalBlockingScore(board: BoardState3D, x: number, y: number, z: number, opponent: Player): number {
+  let blockingScore = 0;
+  
+  // 26방향에서 이 위치가 상대방의 연결을 얼마나 차단하는지 확인
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dy === 0 && dz === 0) continue;
+        
+        // 이 방향으로 상대방 돌이 연결되어 있는지 확인
+        const consecutiveCount = countConsecutiveInLine(board, x, y, z, dx, dy, dz, opponent);
+        
+        if (consecutiveCount >= 4) {
+          blockingScore += 1000000; // 4연속 차단은 게임 승부! 
+        } else if (consecutiveCount >= 3) {
+          blockingScore += 100000; // 3연속 차단은 최우선
+        } else if (consecutiveCount >= 2) {
+          blockingScore += 10000; // 2연속 차단도 매우 중요
+        } else if (consecutiveCount >= 1) {
+          blockingScore += 1000; // 1개라도 차단하면 좋음
+        }
+      }
+    }
+  }
+  
+  return blockingScore;
+}
+
+/**
+ * 특정 방향에서 연결된 상대방 돌 개수 세기 (양쪽 방향)
+ */
+function countConsecutiveInLine(board: BoardState3D, x: number, y: number, z: number, dx: number, dy: number, dz: number, player: Player): number {
+  let count = 0;
+  
+  // 한쪽 방향으로 세기
+  let checkX = x + dx, checkY = y + dy, checkZ = z + dz;
+  while (checkX >= 0 && checkX < BOARD_SIZE &&
+         checkY >= 0 && checkY < BOARD_SIZE &&
+         checkZ >= 0 && checkZ < BOARD_SIZE &&
+         board[checkZ][checkY][checkX] === player) {
+    count++;
+    checkX += dx;
+    checkY += dy;
+    checkZ += dz;
+  }
+  
+  // 반대 방향으로 세기
+  checkX = x - dx;
+  checkY = y - dy;
+  checkZ = z - dz;
+  while (checkX >= 0 && checkX < BOARD_SIZE &&
+         checkY >= 0 && checkY < BOARD_SIZE &&
+         checkZ >= 0 && checkZ < BOARD_SIZE &&
+         board[checkZ][checkY][checkX] === player) {
+    count++;
+    checkX -= dx;
+    checkY -= dy;
+    checkZ -= dz;
+  }
+  
+  return count;
+}
+
+/**
+ * 방어 보너스 계산 - 상대방 돌 근처에 두는 것을 우선시
+ */
+function getDefenseBonus(board: BoardState3D, x: number, y: number, z: number, opponent: Player): number {
+  let bonus = 0;
+  
+  // 주변 8방향(3D에서는 26방향) 검사
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dy === 0 && dz === 0) continue;
+        
+        const nx = x + dx;
+        const ny = y + dy;
+        const nz = z + dz;
+        
+        if (nx >= 0 && nx < BOARD_SIZE && 
+            ny >= 0 && ny < BOARD_SIZE && 
+            nz >= 0 && nz < BOARD_SIZE && 
+            board[nz][ny][nx] === opponent) {
+          
+          // 상대방 돌이 연결되어 있는지 확인
+          let consecutiveCount = 1;
+          let checkX = nx + dx;
+          let checkY = ny + dy;
+          let checkZ = nz + dz;
+          
+          while (checkX >= 0 && checkX < BOARD_SIZE &&
+                 checkY >= 0 && checkY < BOARD_SIZE &&
+                 checkZ >= 0 && checkZ < BOARD_SIZE &&
+                 board[checkZ][checkY][checkX] === opponent) {
+            consecutiveCount++;
+            checkX += dx;
+            checkY += dy;
+            checkZ += dz;
+          }
+          
+          // 연결된 돌이 많을수록 더 높은 방어 보너스
+          bonus += consecutiveCount * 20;
+        }
+      }
+    }
+  }
+  
+  return bonus;
+}
+
+/**
+ * 오목 전략에 맞는 move ordering
+ * @param board Current board state
+ * @param moves Array of moves to order
+ * @param player Player making the moves
+ * @returns Ordered array of moves
+ */
+function orderMovesByGomokuStrategy(board: BoardState3D, moves: Move[], player: Player): Move[] {
+  const opponent = player === 1 ? 2 : 1;
+  
+  return moves.sort((a, b) => {
+    // 1순위: 방어 보너스 (상대방 돌 근처)
+    const aDefense = getDefenseBonus(board, a.x, a.y, a.z, opponent);
+    const bDefense = getDefenseBonus(board, b.x, b.y, b.z, opponent);
+    
+    if (Math.abs(aDefense - bDefense) > 10) {
+      return bDefense - aDefense;
+    }
+    
+    // 2순위: 기존 전략 (중앙, 근접성)
+    return orderMovesByStrategy(board, [a, b], player).indexOf(a) === 0 ? -1 : 1;
+  });
 }
 
 /**

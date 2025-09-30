@@ -1,0 +1,390 @@
+/* Simple GameSetup CSS */
+
+.setup-container-split {
+  min-height: 100vh;
+  display: flex;
+  background: transparent;
+  color: #e2e8f0;
+}
+
+/* New Panel Style */
+.setup-container-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.5rem;
+  color: #e2e8f0;
+}
+
+.setup-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.setup-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.cube-preview-container {
+  width: 100%;
+  height: 70vh;
+  max-width: 600px;
+  background: transparent;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #94A3B8;
+  font-size: 1.1rem;
+}
+
+.setup-card {
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(15, 23, 42, 0.6);
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+  height: fit-content;
+}
+
+.setup-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #e2e8f0;
+  margin-top: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.setup-subtitle {
+  font-size: 1.2rem;
+  margin-bottom: 3rem;
+  color: #cbd5e1;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
+.color-options {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.color-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(30, 41, 59, 0.6);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.color-button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(255, 69, 0, 0.5);
+  border-color: #FF4500;
+  background: rgba(255, 69, 0, 0.15);
+}
+
+.color-button:active {
+  transform: translateY(-2px);
+}
+
+.stone-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transform-style: preserve-3d;
+  /* 3D 스톤 효과를 위한 하이라이트 */
+  box-shadow: 
+    inset 15px 15px 20px rgba(255, 255, 255, 0.1),
+    inset -15px -15px 20px rgba(0, 0, 0, 0.2);
+}
+
+.stone-preview.cyan {
+  background: 
+    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.3) 0%, transparent 40%),
+    linear-gradient(135deg, #00D4FF 0%, #40E0D0 40%, #00D4FF 100%);
+  border: 2px solid #0099DD;
+  box-shadow: 
+    /* 외부 글로우 */
+    0 8px 20px rgba(0, 212, 255, 0.6),
+    0 0 25px rgba(0, 153, 221, 0.4),
+    /* 3D 효과를 위한 내부 그림자 */
+    inset 15px 15px 20px rgba(255, 255, 255, 0.2),
+    inset -10px -10px 15px rgba(0, 0, 0, 0.3),
+    /* 메탈릭 하이라이트 */
+    inset 0 0 20px rgba(64, 224, 208, 0.3);
+  position: relative;
+  animation: setupCyberBlueGlow 2s ease-in-out infinite alternate;
+}
+
+
+.stone-preview.purple {
+  background: 
+    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.3) 0%, transparent 40%),
+    linear-gradient(135deg, #CC00FF 0%, #DD44FF 40%, #CC00FF 100%);
+  border: 2px solid #AA00DD;
+  box-shadow: 
+    /* 외부 글로우 */
+    0 8px 20px rgba(204, 0, 255, 0.6),
+    0 0 25px rgba(170, 0, 221, 0.5),
+    /* 3D 효과를 위한 내부 그림자 */
+    inset 15px 15px 20px rgba(255, 255, 255, 0.2),
+    inset -10px -10px 15px rgba(0, 0, 0, 0.3),
+    /* 메탈릭 하이라이트 */
+    inset 0 0 20px rgba(221, 68, 255, 0.3);
+  position: relative;
+  animation: setupNeonPurpleGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes setupCyberBlueGlow {
+  from {
+    box-shadow: 
+      /* 외부 글로우 */
+      0 8px 20px rgba(0, 212, 255, 0.6),
+      0 0 25px rgba(0, 153, 221, 0.4),
+      /* 3D 효과를 위한 내부 그림자 */
+      inset 15px 15px 20px rgba(255, 255, 255, 0.2),
+      inset -10px -10px 15px rgba(0, 0, 0, 0.3),
+      /* 메탈릭 하이라이트 */
+      inset 0 0 20px rgba(64, 224, 208, 0.3);
+  }
+  to {
+    box-shadow: 
+      /* 외부 글로우 */
+      0 8px 20px rgba(0, 212, 255, 0.8),
+      0 0 35px rgba(0, 153, 221, 0.6),
+      /* 3D 효과를 위한 내부 그림자 */
+      inset 15px 15px 20px rgba(255, 255, 255, 0.25),
+      inset -10px -10px 15px rgba(0, 0, 0, 0.35),
+      /* 메탈릭 하이라이트 */
+      inset 0 0 25px rgba(64, 224, 208, 0.4);
+  }
+}
+
+@keyframes setupNeonPurpleGlow {
+  from {
+    box-shadow: 
+      /* 외부 글로우 */
+      0 8px 20px rgba(204, 0, 255, 0.6),
+      0 0 25px rgba(170, 0, 221, 0.5),
+      /* 3D 효과를 위한 내부 그림자 */
+      inset 15px 15px 20px rgba(255, 255, 255, 0.2),
+      inset -10px -10px 15px rgba(0, 0, 0, 0.3),
+      /* 메탈릭 하이라이트 */
+      inset 0 0 20px rgba(221, 68, 255, 0.3);
+  }
+  to {
+    box-shadow: 
+      /* 외부 글로우 */
+      0 8px 20px rgba(204, 0, 255, 0.8),
+      0 0 35px rgba(170, 0, 221, 0.7),
+      /* 3D 효과를 위한 내부 그림자 */
+      inset 15px 15px 20px rgba(255, 255, 255, 0.25),
+      inset -10px -10px 15px rgba(0, 0, 0, 0.35),
+      /* 메탈릭 하이라이트 */
+      inset 0 0 25px rgba(221, 68, 255, 0.4);
+  }
+}
+
+.color-label {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.color-description {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+  opacity: 0.8;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.game-info {
+  background: rgba(2, 6, 23, 0.6);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  border: 1px solid rgba(15, 23, 42, 0.5);
+}
+
+.info-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  margin-top: 0;
+  color: #e2e8f0;
+}
+
+.info-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.info-item {
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+  padding-left: 1.2rem;
+  position: relative;
+}
+
+.info-item::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #EC4899;
+  font-weight: bold;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .setup-container {
+    padding: 1rem;
+  }
+  
+  .setup-card {
+    padding: 2rem;
+  }
+  
+  .color-options {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .color-button {
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+/* New Stone Previews */
+.stone-preview.black {
+  background: linear-gradient(45deg, #1F2937 0%, #374151 50%, #111827 100%);
+  box-shadow: 0 0 15px rgba(31, 41, 55, 0.8);
+}
+
+.stone-preview.white {
+  background: linear-gradient(45deg, #F8FAFC 0%, #E2E8F0 50%, #F1F5F9 100%);
+  box-shadow: 0 0 15px rgba(248, 250, 252, 0.6);
+}
+
+/* Game Status Styles */
+.game-status {
+  margin: 1.5rem 0;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.player-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.player-label {
+  font-size: 0.9rem;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+.player-color {
+  font-size: 0.9rem;
+  color: #E2E8F0;
+  font-weight: 600;
+}
+
+.vs-divider {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #64748B;
+  padding: 0 1rem;
+}
+
+.current-turn, .game-result {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.status-text {
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.status-text.thinking {
+  background: rgba(249, 115, 22, 0.2);
+  color: #FB923C;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-text.your-turn {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ADE80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-text.ai-turn {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60A5FA;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.status-text.win {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ADE80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-text.lose {
+  background: rgba(239, 68, 68, 0.2);
+  color: #F87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
