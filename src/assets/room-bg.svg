@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <pattern id="ck" width="80" height="80" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#e4f0e8"/>
+      <rect x="40" width="40" height="40" fill="#f2faf5"/>
+      <rect y="40" width="40" height="40" fill="#f2faf5"/>
+      <rect x="40" y="40" width="40" height="40" fill="#e4f0e8"/>
+    </pattern>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.08)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.04)"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#ck)"/>
+  <rect width="1600" height="1000" fill="url(#vignette)"/>
+</svg>

@@ -1,0 +1,257 @@
+/* Playful theme overrides for the in-game screen.
+   Only applied when .playful-theme wraps the game. */
+
+.playful-theme {
+  position: fixed;
+  inset: 0;
+  background: #1a1a1a;
+  font-family: 'General Sans', sans-serif;
+  color: #1f1a2e;
+  overflow: hidden;
+}
+
+/* Default bg pattern — current stripes */
+.playful-theme::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    #d0b8a0 0px,
+    #d0b8a0 40px,
+    #f0e4d8 40px,
+    #f0e4d8 80px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* bg1: Crosshatch / plaid */
+.playful-theme.bg1::before {
+  background:
+    repeating-linear-gradient(0deg, rgba(180,160,140,0.4) 0px, rgba(180,160,140,0.4) 2px, transparent 2px, transparent 32px),
+    repeating-linear-gradient(90deg, rgba(180,160,140,0.4) 0px, rgba(180,160,140,0.4) 2px, transparent 2px, transparent 32px),
+    #f0e4d8;
+}
+
+/* bg2: Tiny triangles tessellation */
+.playful-theme.bg2::before {
+  background:
+    linear-gradient(60deg, #d8ccc0 25%, transparent 25.5%, transparent 75%, #d8ccc0 75%),
+    linear-gradient(-60deg, #d8ccc0 25%, transparent 25.5%, transparent 75%, #d8ccc0 75%);
+  background-size: 56px 96px;
+  background-color: #ede4d8;
+}
+
+/* bg3: Smooth gradient wash */
+.playful-theme.bg3::before {
+  background: linear-gradient(160deg, #e8d0c0 0%, #d0c8e0 50%, #c0d8d8 100%);
+}
+
+/* bg4: Corner room — static SVG illustration */
+.playful-theme.bg4::before {
+  background: url('../assets/room-bg.svg') center / cover no-repeat;
+}
+
+/* bg5: Dense wavy lines — bold graphic */
+.playful-theme.bg5::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40'%3E%3Cpath d='M-50 20 Q-25 0 0 20 Q25 40 50 20 Q75 0 100 20 Q125 40 150 20 Q175 0 200 20 Q225 40 250 20' stroke='%23b8a0d8' stroke-width='10' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 200px 40px;
+  background-repeat: repeat;
+  background-color: #ece0f4;
+}
+
+/* Title bar */
+.playful-theme .title-header {
+  padding: 24px 40px 0 40px;
+  z-index: 100;
+}
+
+/* Turn indicator chip */
+.playful-theme .simple-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  color: #3a4a5a;
+  font-family: 'General Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 10px 20px;
+  border: 2px solid #3a4a5a;
+  border-radius: 100px;
+  box-shadow: 3px 3px 0 #3a4a5a;
+  flex: 0 0 auto;
+  max-width: fit-content;
+  text-shadow: none;
+  background-clip: unset;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: initial;
+}
+
+.playful-theme .simple-title::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a8c8b8;
+  border: 2px solid #3a4a5a;
+}
+
+.playful-theme .simple-title.thinking {
+  animation: playful-bounce 1.5s ease-in-out infinite;
+}
+
+@keyframes playful-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Controls column on the right */
+.playful-theme .controls-vertical {
+  gap: 10px;
+}
+
+/* New Game button */
+.playful-theme .new-game-button {
+  background: #e8f0e8;
+  color: #3a4a5a;
+  font-family: 'General Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 10px 18px;
+  border: 2px solid #3a4a5a;
+  border-radius: 100px;
+  box-shadow: 3px 3px 0 #3a4a5a;
+  transition: all 0.15s ease;
+  backdrop-filter: none;
+}
+
+.playful-theme .new-game-button::before {
+  display: none;
+}
+
+.playful-theme .new-game-button:hover {
+  background: #d8e8d8;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #3a4a5a;
+  color: #3a4a5a;
+  border-color: #3a4a5a;
+}
+
+.playful-theme .new-game-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #3a4a5a;
+}
+
+.playful-theme .new-game-icon {
+  font-size: 14px;
+  color: #3a4a5a;
+}
+
+.playful-theme .new-game-button:hover .new-game-icon {
+  transform: rotate(-180deg);
+}
+
+.playful-theme .new-game-text {
+  font-weight: 500;
+  color: #3a4a5a;
+}
+
+/* Mute button */
+.playful-theme .control-button {
+  width: 42px;
+  height: 42px;
+  background: #fff;
+  color: #3a4a5a;
+  border: 2px solid #3a4a5a;
+  border-radius: 50%;
+  box-shadow: 3px 3px 0 #3a4a5a;
+  backdrop-filter: none;
+  font-family: 'General Sans', sans-serif;
+}
+
+.playful-theme .control-button::before {
+  display: none;
+}
+
+.playful-theme .control-button:hover {
+  background: #e8f0e8;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #3a4a5a;
+  border-color: #3a4a5a;
+  color: #3a4a5a;
+}
+
+.playful-theme .control-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #3a4a5a;
+}
+
+.playful-theme .control-button.muted {
+  background: #ff8fb3;
+}
+
+.playful-theme .control-icon {
+  font-size: 20px;
+}
+
+/* Board area — isolate from room transforms */
+.playful-theme .app-layout,
+.playful-theme .board-wrapper {
+  position: relative;
+  z-index: 10;
+  isolation: isolate;
+}
+
+/* Rotation controls */
+.playful-theme .rotation-controls {
+  background: #fff;
+  border: 3px solid #2b1a4a;
+  border-radius: 20px;
+  box-shadow: 5px 5px 0 #2b1a4a;
+  padding: 10px;
+  gap: 6px;
+}
+
+.playful-theme .rotation-button {
+  background: #ffd84d;
+  color: #2b1a4a;
+  border: 2px solid #2b1a4a;
+  border-radius: 10px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+}
+
+.playful-theme .rotation-button:hover {
+  background: #ffe066;
+  transform: translate(-1px, -1px);
+}
+
+/* Zoom controls */
+.playful-theme .zoom-controls {
+  background: #fff;
+  border: 3px solid #2b1a4a;
+  border-radius: 20px;
+  box-shadow: 5px 5px 0 #2b1a4a;
+  padding: 8px;
+}
+
+.playful-theme .zoom-button {
+  background: #8ad6ff;
+  color: #2b1a4a;
+  border: 2px solid #2b1a4a;
+  border-radius: 10px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+}
+
+.playful-theme .zoom-button:hover {
+  background: #a8e0ff;
+  transform: translate(-1px, -1px);
+}

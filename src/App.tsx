@@ -2,8 +2,15 @@ import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import { Gomoku3DBoard, BoardState3D, Player } from './components/Gomoku3DBoard';
 import { GameSetup } from './components/GameSetup';
+import { StartZen } from './components/StartZen';
+import { StartGlass } from './components/StartGlass';
+import { StartPlayful, GameDimension } from './components/StartPlayful';
+import './components/PlayfulGame.css';
 import { isForbiddenMove, isLegalMove } from './utils/gameRules';
 import { GomokuAI } from './ai';
+import { Gomoku2DBoard } from './components/Gomoku2DBoard';
+import { SparseBoard2D, getEmptyBoard2D, checkWinner2D, isForbiddenMove2D, getStone, setStone } from './game2d/gameLogic';
+import { GomokuAI2D } from './game2d/ai2d';
 
 
 const BOARD_SIZE = 8;
@@ -268,14 +275,28 @@ type Move = {
 type GameMode = 'setup' | 'playing';
 
 const App: React.FC = () => {
+  // Hash-based mockup router: #zen, #glass, #playful — empty = original
+  const [hashRoute, setHashRoute] = useState<string>(() => window.location.hash.replace('#', ''));
+  useEffect(() => {
+    const onHashChange = () => setHashRoute(window.location.hash.replace('#', ''));
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   // Game mode and player configuration
   const [gameMode, setGameMode] = useState<GameMode>('setup');
+  const [gameDimension, setGameDimension] = useState<GameDimension>('2d');
   const [humanPlayer, setHumanPlayer] = useState<Player>(1);
   const [aiPlayer, setAiPlayer] = useState<Player>(2);
   const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   
-  // AI instance
+  // AI instances
   const [ai] = useState(() => new GomokuAI('medium'));
+  const [ai2d] = useState(() => new GomokuAI2D('medium'));
+
+  // 2D game state
+  const [board2d, setBoard2d] = useState<SparseBoard2D>(getEmptyBoard2D());
+  const [lastMove2d, setLastMove2d] = useState<{ x: number; y: number } | null>(null);
 
   const [board, setBoard] = useState<BoardState3D>(getEmptyBoard3D());
   const [currentPlayer, setCurrentPlayer] = useState<Player>(1);
@@ -547,19 +568,81 @@ const App: React.FC = () => {
   }, [board, winner, moveHistory, ghostStone]);
 
 
+  // === 2D GAME HANDLERS ===
+  const handlePlaceStone2D = useCallback((x: number, y: number) => {
+    if (getStone(board2d, x, y) !== 0 || winner || isAiThinking) return;
+    if (currentPlayer !== humanPlayer) return;
+    if (isForbiddenMove2D(board2d, x, y, currentPlayer)) return;
+
+    const newBoard = setStone(board2d, x, y, currentPlayer);
+    setBoard2d(newBoard);
+    setLastMove2d({ x, y });
+    playStoneSound(currentPlayer, isMuted);
+
+    const win = checkWinner2D(newBoard);
+    if (win) {
+      setWinner(win);
+      setTimeout(() => playWinSound(isMuted), 200);
+    } else {
+      setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
+    }
+  }, [board2d, currentPlayer, humanPlayer, winner, isAiThinking, isMuted]);
+
+  const makeAiMove2D = useCallback(async (currentBoard: SparseBoard2D) => {
+    if (winner !== 0 || isAiThinking || currentPlayer !== aiPlayer) return;
+    setIsAiThinking(true);
+
+    try {
+      const result = await ai2d.getBestMove(currentBoard, aiPlayer);
+      if (result.move) {
+        const minDelay = Math.max(0, 500 - result.thinkingTime);
+        setTimeout(() => {
+          if (currentPlayer === aiPlayer && !winner) {
+            const newBoard = setStone(currentBoard, result.move!.x, result.move!.y, aiPlayer);
+            setBoard2d(newBoard);
+            setLastMove2d({ x: result.move!.x, y: result.move!.y });
+            playStoneSound(aiPlayer, isMuted);
+
+            const win = checkWinner2D(newBoard);
+            if (win) {
+              setWinner(win);
+              setTimeout(() => playWinSound(isMuted), 200);
+            } else {
+              setCurrentPlayer(aiPlayer === 1 ? 2 : 1);
+            }
+          }
+          setIsAiThinking(false);
+        }, minDelay);
+      } else {
+        setIsAiThinking(false);
+      }
+    } catch {
+      setIsAiThinking(false);
+    }
+  }, [aiPlayer, currentPlayer, winner, isAiThinking, ai2d, isMuted]);
+
+  // Trigger 2D AI move when it's AI's turn
+  useEffect(() => {
+    if (gameDimension === '2d' && gameMode === 'playing' && winner === 0 && currentPlayer === aiPlayer && !isAiThinking) {
+      setTimeout(() => makeAiMove2D(board2d), 200);
+    }
+  }, [gameDimension, gameMode, currentPlayer, aiPlayer, winner, isAiThinking, board2d, makeAiMove2D]);
+
   const handlePlayerSelection = (selectedHumanPlayer: Player) => {
     console.log('=== GAME SETUP ===');
     console.log('Human selected:', selectedHumanPlayer === 1 ? 'Black (goes first)' : 'White (goes second)');
-    
+
     const selectedAiPlayer = selectedHumanPlayer === 1 ? 2 : 1;
-    
+
     // Clear all game state first
     setBoard(getEmptyBoard3D());
+    setBoard2d(getEmptyBoard2D());
+    setLastMove2d(null);
     setWinner(0);
     setMoveHistory([]);
     setGhostStone(null);
     setIsAiThinking(false);
-    
+
     // Set up players
     setHumanPlayer(selectedHumanPlayer);
     setAiPlayer(selectedAiPlayer);
@@ -581,12 +664,14 @@ const App: React.FC = () => {
 
   const handleRestart = () => {
     setBoard(getEmptyBoard3D());
+    setBoard2d(getEmptyBoard2D());
+    setLastMove2d(null);
     setCurrentPlayer(1);
     setWinner(0);
-    setMoveHistory([]); // Clear move history
-    setGhostStone(null); // Clear ghost stone
+    setMoveHistory([]);
+    setGhostStone(null);
     setIsAiThinking(false);
-    setGameMode('setup'); // Go back to setup
+    setGameMode('setup');
   };
 
   const toggleMute = () => {
@@ -631,10 +716,27 @@ const App: React.FC = () => {
   }, [handleUndo]);
 
 
+  const handlePlayfulStart = (dimension: GameDimension, selectedHumanPlayer: Player) => {
+    setGameDimension(dimension);
+    handlePlayerSelection(selectedHumanPlayer);
+  };
+
+  const isPlayfulRoute = hashRoute === 'playful' || hashRoute.startsWith('bg');
+  const bgClass = hashRoute.startsWith('bg') ? ` ${hashRoute}` : '';
+
+  const renderSetup = () => {
+    if (hashRoute === 'zen') return <StartZen onPlayerSelection={handlePlayerSelection} />;
+    if (hashRoute === 'glass') return <StartGlass onPlayerSelection={handlePlayerSelection} />;
+    if (isPlayfulRoute) return <StartPlayful onStart={handlePlayfulStart} />;
+    return <GameSetup onPlayerSelection={handlePlayerSelection} />;
+  };
+
+  const containerClass = `app-container${isPlayfulRoute && gameMode === 'playing' ? ` playful-theme${bgClass}` : ''}`;
+
   return (
-    <div className="app-container">
+    <div className={containerClass}>
       {gameMode === 'setup' ? (
-        <GameSetup onPlayerSelection={handlePlayerSelection} />
+        renderSetup()
       ) : (
         <>
           <div className="title-header">
@@ -664,20 +766,33 @@ const App: React.FC = () => {
           </div>
           <div className="app-layout">
             <div className="board-wrapper">
-              <Gomoku3DBoard
-                board={board}
-                onPlaceStone={handlePlaceStone}
-                onUndo={handleUndo}
-                currentPlayer={currentPlayer}
-                winner={winner}
-                hovered={hovered}
-                setHovered={setHovered}
-                cameraPos={cameraPos}
-                cameraTarget={cameraTarget}
-                onCameraChange={handleCameraChange}
-                ghostStone={ghostStone}
-                isAiThinking={isAiThinking}
-              />
+              {gameDimension === '2d' ? (
+                <Gomoku2DBoard
+                  board={board2d}
+                  onPlaceStone={handlePlaceStone2D}
+                  currentPlayer={currentPlayer}
+                  winner={winner}
+                  isAiThinking={isAiThinking}
+                  lastMove={lastMove2d}
+                  humanPlayer={humanPlayer}
+                  aiPlayer={aiPlayer}
+                />
+              ) : (
+                <Gomoku3DBoard
+                  board={board}
+                  onPlaceStone={handlePlaceStone}
+                  onUndo={handleUndo}
+                  currentPlayer={currentPlayer}
+                  winner={winner}
+                  hovered={hovered}
+                  setHovered={setHovered}
+                  cameraPos={cameraPos}
+                  cameraTarget={cameraTarget}
+                  onCameraChange={handleCameraChange}
+                  ghostStone={ghostStone}
+                  isAiThinking={isAiThinking}
+                />
+              )}
             </div>
           </div>
         </>

@@ -1,0 +1,293 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&display=swap');
+
+.glass-root {
+  position: fixed;
+  inset: 0;
+  background: #060814;
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  overflow: hidden;
+}
+
+.glass-bg-cube {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  filter: blur(1px);
+}
+
+.glass-aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.glass-aurora-1 {
+  top: -200px;
+  left: -100px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #4f3bff 0%, transparent 70%);
+  opacity: 0.5;
+}
+
+.glass-aurora-2 {
+  bottom: -250px;
+  right: -150px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, #ff3b8d 0%, transparent 70%);
+  opacity: 0.35;
+}
+
+.glass-aurora-3 {
+  top: 40%;
+  left: 30%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #00d4ff 0%, transparent 70%);
+  opacity: 0.25;
+}
+
+.glass-header {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 48px;
+  z-index: 10;
+}
+
+.glass-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+}
+
+.glass-logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00d4ff;
+  box-shadow: 0 0 12px #00d4ff;
+}
+
+.glass-logo-accent {
+  color: #7a6bff;
+  font-weight: 300;
+}
+
+.glass-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.glass-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 8px #00ff88;
+  animation: glass-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glass-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.glass-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: calc(100vh - 100px);
+  padding: 0 48px;
+  z-index: 5;
+}
+
+.glass-card {
+  width: 520px;
+  padding: 48px;
+  background: rgba(20, 24, 48, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.glass-tag {
+  display: inline-block;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(122, 107, 255, 0.3), rgba(0, 212, 255, 0.2));
+  border: 1px solid rgba(122, 107, 255, 0.4);
+  border-radius: 100px;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  font-weight: 500;
+  margin-bottom: 24px;
+  color: #c5bbff;
+}
+
+.glass-title {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 0 0 20px;
+}
+
+.glass-title-accent {
+  background: linear-gradient(135deg, #7a6bff 0%, #00d4ff 50%, #ff3b8d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 500;
+}
+
+.glass-subtitle {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 28px;
+  font-weight: 300;
+}
+
+.glass-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  margin: 0 0 20px;
+}
+
+.glass-choose-label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+.glass-stones {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.glass-stone-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+  color: #fff;
+  text-align: left;
+}
+
+.glass-stone-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(122, 107, 255, 0.5);
+  transform: translateX(4px);
+}
+
+.glass-stone-btn:hover .glass-stone-arrow {
+  transform: translateX(4px);
+  color: #7a6bff;
+}
+
+.glass-stone {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.glass-stone-black {
+  background: radial-gradient(circle at 35% 30%, #555, #000 70%);
+  box-shadow:
+    inset -4px -6px 12px rgba(0, 0, 0, 0.6),
+    inset 3px 3px 6px rgba(255, 255, 255, 0.25),
+    0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.glass-stone-white {
+  background: radial-gradient(circle at 35% 30%, #fff, #c8c8d8 80%);
+  box-shadow:
+    inset -4px -6px 12px rgba(0, 0, 0, 0.2),
+    inset 3px 3px 6px rgba(255, 255, 255, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.glass-stone-info {
+  flex: 1;
+}
+
+.glass-stone-name {
+  font-size: 17px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.glass-stone-meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+}
+
+.glass-stone-arrow {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.25s ease;
+}
+
+.glass-stats {
+  display: flex;
+  gap: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-stat {
+  flex: 1;
+}
+
+.glass-stat-num {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.6));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-stat-label {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}

@@ -64,8 +64,8 @@ const stoneMaterialProps = (player: Player) => {
 
 // Helper to render grid lines for a 3D cube - 팝 스타일!
 const GridLines3D: React.FC = () => {
-  const gridColor = '#FF6B35'; // 밝은 오렌지 - 팝 느낌!
-  const frameColor = '#FF6B35'; // 그리드와 동일한 오렌지 색상으로 통일!
+  const gridColor = '#c8935a'; // maple — interior grid lines
+  const frameColor = '#8b5a2b'; // walnut — outer cube frame
   if (BOARD_SIZE < 2) return null;
   const lines = [];
   

@@ -1,0 +1,60 @@
+.board-2d-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 28px;
+}
+
+.board-2d-svg {
+  max-height: 82vh;
+  border-radius: 0;
+}
+
+/* Avatars */
+.avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.avatar-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.avatar-inactive {
+  opacity: 0.35;
+  transform: scale(0.9);
+}
+
+.avatar-stone {
+  display: flex;
+  justify-content: center;
+}
+
+.avatar-stone-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #1a1a1a;
+}
+
+.avatar-stone-dot.stone-black {
+  background: #1a1a1a;
+}
+
+.avatar-stone-dot.stone-white {
+  background: #fffef5;
+}
+
+.avatar-label {
+  font-family: 'General Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  letter-spacing: 0.02em;
+}
