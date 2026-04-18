@@ -52,15 +52,15 @@ export const StartPlayful: React.FC<Props> = ({ onStart }) => {
                     <line x1="34" y1="4" x2="34" y2="44" stroke="currentColor" strokeWidth="1.5" opacity="0.4"/>
                   </svg>
                 </div>
-                <div className="playful-team-name">Classic 2D</div>
-                <div className="playful-team-badge badge-warm">recommended</div>
+                <div className="playful-team-name">Classic</div>
               </button>
 
-              <div className="playful-vs-text">or</div>
+              <div className="playful-vs">OR</div>
 
               <button
-                className="playful-team"
-                onClick={() => handlePickMode('3d')}
+                className="playful-team playful-team-wip"
+                onClick={() => {/* disabled for users */}}
+                onDoubleClick={() => handlePickMode('3d')}
               >
                 <div className="playful-mode-icon playful-mode-3d">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -72,6 +72,7 @@ export const StartPlayful: React.FC<Props> = ({ onStart }) => {
                   </svg>
                 </div>
                 <div className="playful-team-name">3D Advanced</div>
+                <div className="playful-team-badge badge-wip">Coming Soon</div>
               </button>
             </div>
 

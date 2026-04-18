@@ -113,7 +113,7 @@
 
 .playful-teams {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 24px;
 }
 
@@ -131,7 +131,7 @@
   align-items: center;
   gap: 12px;
   min-width: 200px;
-  min-height: 180px;
+  min-height: 200px;
   justify-content: center;
   color: #3a4a5a;
 }
@@ -205,6 +205,21 @@
   background: #6a8aaa;
 }
 
+.playful-team-badge.badge-wip {
+  background: #8a9aaa;
+}
+
+.playful-team-wip {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.playful-team-wip:hover {
+  transform: none;
+  box-shadow: 5px 5px 0 #3a4a5a;
+  background: #fff;
+}
+
 .playful-vs {
   font-size: 16px;
   font-weight: 500;
@@ -236,6 +251,10 @@
   font-weight: 400;
   color: #8a9a8a;
   padding: 0 4px;
+}
+
+.playful-teams .playful-vs {
+  align-self: center;
 }
 
 .playful-back {

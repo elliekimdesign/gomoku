@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { SparseBoard2D, isLegalMove2D, getStone, getBounds } from '../game2d/gameLogic';
+import { SparseBoard2D, isLegalMove2D, getStone, getBounds, getWinningLine } from '../game2d/gameLogic';
 import { Player } from './Gomoku3DBoard';
 import './Gomoku2DBoard.css';
 
@@ -271,6 +271,40 @@ export const Gomoku2DBoard: React.FC<Props> = ({
 
         {/* Stones */}
         {stones}
+
+        {/* Winning line highlight */}
+        {winner !== 0 && (() => {
+          const line = getWinningLine(board);
+          if (!line) return null;
+          return (
+            <g>
+              {/* Line connecting winning stones */}
+              <line
+                x1={PADDING + (line[0].x - minX) * CELL}
+                y1={PADDING + (line[0].y - minY) * CELL}
+                x2={PADDING + (line[line.length - 1].x - minX) * CELL}
+                y2={PADDING + (line[line.length - 1].y - minY) * CELL}
+                stroke="#ff3b5c"
+                strokeWidth={4}
+                strokeLinecap="round"
+                opacity={0.8}
+              />
+              {/* Rings around winning stones */}
+              {line.map((pos, idx) => (
+                <circle
+                  key={`win${idx}`}
+                  cx={PADDING + (pos.x - minX) * CELL}
+                  cy={PADDING + (pos.y - minY) * CELL}
+                  r={STONE_R + 4}
+                  fill="none"
+                  stroke="#ff3b5c"
+                  strokeWidth={3}
+                  opacity={0.9}
+                />
+              ))}
+            </g>
+          );
+        })()}
 
         {/* Click targets */}
         {clickTargets}

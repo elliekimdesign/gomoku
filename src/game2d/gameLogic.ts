@@ -95,6 +95,31 @@ export function checkWinner2D(board: SparseBoard2D): Player {
   return 0;
 }
 
+// Returns the coordinates of the winning line, or null if no winner
+export function getWinningLine(board: SparseBoard2D): { x: number; y: number }[] | null {
+  const keys = Array.from(board.stones.keys());
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(',');
+    const x = Number(parts[0]);
+    const y = Number(parts[1]);
+    const player = board.stones.get(keys[i]) as Player;
+    if (player === 0) continue;
+
+    for (const [dx, dy] of DIRECTIONS) {
+      const line = [{ x, y }];
+      let nx = x + dx;
+      let ny = y + dy;
+      while (getStone(board, nx, ny) === player) {
+        line.push({ x: nx, y: ny });
+        nx += dx;
+        ny += dy;
+      }
+      if (line.length >= WIN_COUNT) return line.slice(0, WIN_COUNT);
+    }
+  }
+  return null;
+}
+
 export function isForbiddenMove2D(board: SparseBoard2D, x: number, y: number, player: Player): boolean {
   if (getStone(board, x, y) !== 0) return true;
 
