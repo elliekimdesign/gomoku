@@ -114,10 +114,9 @@ export const Gomoku2DBoard: React.FC<Props> = ({
 
   const handleMouseLeave = useCallback(() => setHovered(null), []);
 
-  // Grid lines — bold black, pop art
+  // Grid lines
   const gridLines = [];
   for (let i = 0; i < width; i++) {
-    const isEdge = i === 0 || i === width - 1;
     gridLines.push(
       <line
         key={`h${i}`}
@@ -126,12 +125,11 @@ export const Gomoku2DBoard: React.FC<Props> = ({
         x2={PADDING + boardPxW}
         y2={PADDING + i * CELL}
         stroke="#1a1a1a"
-        strokeWidth={isEdge ? 2.5 : 1}
+        strokeWidth={1}
       />
     );
   }
   for (let i = 0; i < width; i++) {
-    const isEdge = i === 0 || i === width - 1;
     gridLines.push(
       <line
         key={`v${i}`}
@@ -140,7 +138,7 @@ export const Gomoku2DBoard: React.FC<Props> = ({
         x2={PADDING + i * CELL}
         y2={PADDING + boardPxH}
         stroke="#1a1a1a"
-        strokeWidth={isEdge ? 2.5 : 1}
+        strokeWidth={1}
       />
     );
   }

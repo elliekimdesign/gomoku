@@ -10,18 +10,12 @@
   overflow: hidden;
 }
 
-/* Default bg pattern — current stripes */
+/* Default bg pattern — checker room */
 .playful-theme::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    #d0b8a0 0px,
-    #d0b8a0 40px,
-    #f0e4d8 40px,
-    #f0e4d8 80px
-  );
+  background: url('../assets/room-bg.svg') center / cover no-repeat;
   pointer-events: none;
   z-index: 0;
 }
